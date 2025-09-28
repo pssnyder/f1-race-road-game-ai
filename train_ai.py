@@ -1,3 +1,45 @@
+"""
+🏋️ F1 Race AI Training System 🤖
+=================================
+
+Welcome to the AI Training Center! 🎓✨
+
+This is where the magic happens - where we transform a clueless AI into a racing expert!
+Think of this as the "gym" where our artificial race car driver learns to become a champion.
+
+🎯 WHAT HAPPENS DURING TRAINING?
+-------------------------------
+Imagine teaching a friend to drive:
+- 🚗 They start by crashing into everything (random actions)  
+- 💡 Gradually they learn "don't hit red things" (negative rewards)
+- 🏆 Eventually they become skilled drivers (positive rewards)
+- 📈 Each practice session makes them better (learning from experience)
+
+Our AI goes through the same process, but MUCH faster! 🚀
+
+🧠 THE TRAINING PROCESS:
+1. 🎮 CREATE ENVIRONMENT: Set up the racing game
+2. 🤖 CREATE AI AGENT: Initialize the "student driver" 
+3. 🔄 PRACTICE LOOP: Let AI play thousands of games
+4. 📊 TRACK PROGRESS: Monitor how well AI is learning
+5. 💾 SAVE RESULTS: Keep the trained "brain" for later use
+
+🎓 TRAINING PHASES:
+- 🌟 EXPLORATION: AI tries random actions to discover what works
+- 🧠 LEARNING: AI updates its "brain" based on rewards/penalties  
+- 🎯 EXPLOITATION: AI uses learned knowledge to get better scores
+- 🏆 MASTERY: AI becomes expert driver that rarely crashes!
+
+👥 AUDIENCE NOTES:
+- 🔬 Data Scientists: Notice the hyperparameter tuning and performance metrics
+- 👩‍🏫 Educators: Great example of trial-and-error learning scaled up
+- 👶 Young Coders: Watch a computer learn to play games just like humans!
+- 🤓 AI Curious: See reinforcement learning in action with real-time feedback
+
+Author: Pat Snyder 💻
+Created for: Learning Labs Portfolio 🌟
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from f1_race_env import F1RaceEnvironment
@@ -5,236 +47,474 @@ from dqn_agent import DQNAgent
 import time
 import os
 
-def train_agent(episodes=2000, target_update_frequency=100, save_frequency=500, render_training=False):
-    """Train the DQN agent on F1 Race game"""
+def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=500, 
+                   show_training=False):
+    """
+    🏋️ Train the AI to become an expert F1 race car driver!
     
-    print("Initializing F1 Race AI Training...")
+    This function runs the complete training process where the AI plays
+    thousands of racing games and learns from each experience.
     
-    # Create environment and agent
-    env = F1RaceEnvironment(render=render_training)
+    Args:
+        episodes (int): How many games to play (2000 = good for learning)
+        target_update_frequency (int): How often to update target network (100 = stable)
+        save_frequency (int): How often to save progress (500 = reasonable backup)
+        show_training (bool): Whether to show the game while training (False = faster)
+        
+    Returns:
+        DQNAgent: The trained AI agent
+    """
+    
+    print("🎮 INITIALIZING F1 RACE AI TRAINING SYSTEM")
+    print("=" * 50)
+    
+    # 🎛️ TRAINING CONFIGURATION - Easy to modify!
+    # ===========================================
+    LEARNING_RATE = 0.001        # 📚 How fast AI learns (0.001 = stable default)
+    DISCOUNT_FACTOR = 0.99       # 🔮 How much AI cares about future (0.99 = forward-thinking)
+    EXPLORATION_START = 1.0      # 🎲 Initial randomness (100% random at start)
+    EXPLORATION_END = 0.01       # 🎲 Final randomness (1% random when expert)
+    EXPLORATION_DECAY = 0.995    # 📉 How fast to reduce randomness (0.995 = gradual)
+    MEMORY_SIZE = 10000         # 🧠 How many experiences to remember
+    BATCH_SIZE = 32             # 📦 How many experiences to learn from at once
+    
+    # 🏗️ CREATE TRAINING ENVIRONMENT AND AI AGENT
+    # ============================================
+    print("🏎️  Creating racing environment...")
+    env = F1RaceEnvironment(render=show_training)
+    
+    print("🤖 Creating AI agent...")
     agent = DQNAgent(
-        state_size=env.state_space_size,
-        action_size=env.action_space_size,
-        lr=0.001,
-        gamma=0.99,
-        epsilon_start=1.0,
-        epsilon_end=0.01,
-        epsilon_decay=0.995,
-        memory_size=10000,
-        batch_size=32
+        state_size=env.state_space_size,      # 5 numbers describing game state
+        action_size=env.action_space_size,    # 3 possible actions  
+        learning_rate=LEARNING_RATE,
+        gamma=DISCOUNT_FACTOR,
+        epsilon_start=EXPLORATION_START,
+        epsilon_end=EXPLORATION_END,
+        epsilon_decay=EXPLORATION_DECAY,
+        memory_size=MEMORY_SIZE,
+        batch_size=BATCH_SIZE
     )
     
-    print(f"Environment: State space size = {env.state_space_size}, Action space size = {env.action_space_size}")
-    print(f"Agent: Learning rate = {agent.lr}, Gamma = {agent.gamma}")
-    print(f"Training for {episodes} episodes...")
+    # 📊 DISPLAY TRAINING CONFIGURATION
+    # =================================
+    print(f"📏 State space: {env.state_space_size} values")
+    print(f"🎯 Action space: {env.action_space_size} actions")
+    print(f"📚 Learning rate: {LEARNING_RATE}")  
+    print(f"🔮 Discount factor: {DISCOUNT_FACTOR}")
+    print(f"🎮 Training episodes: {episodes}")
+    print(f"👁️  Show training: {show_training}")
     print("-" * 50)
     
-    # Training metrics
-    episode_scores = []
-    episode_lengths = []
-    best_score = 0
+    # 📊 TRAINING METRICS - Track AI's progress
+    # ========================================
+    all_scores = []           # Score from each episode
+    all_episode_lengths = []  # How long each episode lasted
+    best_score_ever = 0       # Best score achieved so far
+    training_start_time = time.time()
     
-    for episode in range(episodes):
-        state = env.reset()
+    # 🏋️ MAIN TRAINING LOOP
+    # =====================
+    print("🚀 STARTING TRAINING!")
+    print("Watch the AI transform from terrible to talented! 🎓\n")
+    
+    for episode_number in range(episodes):
+        # 🔄 START NEW EPISODE
+        # ===================
+        current_state = env.reset()
         total_reward = 0
-        steps = 0
-        start_time = time.time()
+        steps_taken = 0
+        episode_start_time = time.time()
         
+        # 🎮 PLAY ONE COMPLETE GAME
+        # ========================
         while True:
-            # Choose action
-            action = agent.act(state)
+            # 🤔 AI DECIDES WHAT TO DO
+            # ========================
+            action = agent.choose_action(current_state, training_mode=True)
             
-            # Take action
-            next_state, reward, done, info = env.step(action)
+            # 🎬 TAKE ACTION IN GAME  
+            # ======================
+            next_state, reward, game_over, info = env.step(action)
             
-            # Store experience
-            agent.remember(state, action, reward, next_state, done)
+            # 💾 STORE EXPERIENCE FOR LEARNING
+            # ================================
+            agent.store_experience(current_state, action, reward, next_state, game_over)
             
-            # Update state
-            state = next_state
-            total_reward += reward
-            steps += 1
+            # 📊 UPDATE TRACKING VARIABLES
+            # ============================
+            current_state = next_state
+            total_reward = total_reward + reward
+            steps_taken = steps_taken + 1
             
-            # Render if enabled
-            if render_training:
+            # 🎨 SHOW GAME IF ENABLED
+            # =======================
+            if show_training:
                 env.render()
-                time.sleep(0.01)  # Slow down for viewing
+                time.sleep(0.01)  # Slow down so humans can watch
             
-            # Train agent
+            # 🎓 LEARN FROM EXPERIENCES (if enough stored)
+            # ===========================================
             if len(agent.memory) > agent.batch_size:
-                agent.replay()
+                agent.train_from_experience()
             
-            if done:
+            # 🏁 CHECK IF EPISODE FINISHED
+            # ============================
+            if game_over:
                 break
         
-        # Record episode metrics
-        episode_scores.append(info['score'])
-        episode_lengths.append(steps)
-        agent.scores.append(info['score'])
+        # 📈 RECORD EPISODE RESULTS
+        # ========================
+        episode_score = info['score']
+        all_scores.append(episode_score)
+        all_episode_lengths.append(steps_taken)
+        agent.episode_scores.append(episode_score)
         
-        # Update target network
-        if episode % target_update_frequency == 0:
-            agent.update_target_network()
+        # 🎯 UPDATE TARGET NETWORK PERIODICALLY
+        # ====================================
+        if episode_number % target_update_frequency == 0:
+            agent.copy_to_target_network()
         
-        # Print progress
-        if episode % 100 == 0 or info['score'] > best_score:
-            episode_time = time.time() - start_time
-            avg_score = np.mean(episode_scores[-100:]) if len(episode_scores) >= 100 else np.mean(episode_scores)
-            avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
+        # 📊 DISPLAY PROGRESS UPDATES
+        # ===========================
+        show_progress = (episode_number % 100 == 0 or episode_score > best_score_ever)
+        
+        if show_progress:
+            episode_time = time.time() - episode_start_time
             
-            print(f"Episode {episode:4d} | Score: {info['score']:3d} | Steps: {steps:4d} | "
-                  f"Avg Score: {avg_score:.2f} | Avg Length: {avg_length:.1f} | "
-                  f"Epsilon: {agent.epsilon:.3f} | Time: {episode_time:.2f}s")
+            # Calculate averages
+            if len(all_scores) >= 100:
+                avg_score = sum(all_scores[-100:]) / 100
+                avg_length = sum(all_episode_lengths[-100:]) / 100
+            else:
+                avg_score = sum(all_scores) / len(all_scores)
+                avg_length = sum(all_episode_lengths) / len(all_episode_lengths)
             
-            if info['score'] > best_score:
-                best_score = info['score']
-                print(f"New best score: {best_score}!")
+            print(f"Episode {episode_number:4d} | "
+                  f"Score: {episode_score:3d} | "
+                  f"Steps: {steps_taken:4d} | "
+                  f"Avg Score: {avg_score:.2f} | "
+                  f"Avg Steps: {avg_length:.1f} | "
+                  f"Exploration: {agent.epsilon:.3f} | "
+                  f"Time: {episode_time:.2f}s")
+            
+            # 🏆 CHECK FOR NEW RECORD
+            # =======================
+            if episode_score > best_score_ever:
+                best_score_ever = episode_score
+                print(f"   🎉 NEW RECORD! Best score: {best_score_ever}")
         
-        # Save model periodically
-        if episode % save_frequency == 0 and episode > 0:
-            agent.save(f'dqn_model_episode_{episode}.pth')
+        # 💾 SAVE PROGRESS PERIODICALLY
+        # =============================
+        if episode_number % save_frequency == 0 and episode_number > 0:
+            checkpoint_filename = f'ai_driver_checkpoint_episode_{episode_number}.pth'
+            agent.save_agent(checkpoint_filename)
+            print(f"   💾 Progress saved: {checkpoint_filename}")
     
-    # Save final model
-    agent.save('dqn_model_final.pth')
+    # 🏆 TRAINING COMPLETED!
+    # =====================
+    total_training_time = time.time() - training_start_time
     
-    # Plot training results
-    print("\nTraining completed!")
-    print(f"Best score achieved: {best_score}")
-    print(f"Final average score (last 100 episodes): {np.mean(episode_scores[-100:]):.2f}")
+    print("\n" + "=" * 50)
+    print("🎓 TRAINING COMPLETED SUCCESSFULLY!")
+    print("=" * 50)
     
-    agent.plot_training_metrics()
+    # 📊 FINAL STATISTICS
+    # ==================
+    final_avg_score = sum(all_scores[-100:]) / min(100, len(all_scores))
+    print(f"🏆 Best score achieved: {best_score_ever}")
+    print(f"📈 Final average score: {final_avg_score:.2f}")
+    print(f"⏱️  Total training time: {total_training_time/60:.1f} minutes")
+    print(f"🎮 Episodes completed: {episodes}")
+    print(f"🧠 Final exploration rate: {agent.epsilon:.4f}")
     
+    # 💾 SAVE FINAL TRAINED MODEL
+    # ===========================
+    final_model_name = 'f1_race_ai_final_model.pth'
+    agent.save_agent(final_model_name)
+    
+    # 📊 CREATE TRAINING CHARTS
+    # =========================
+    print("📊 Creating training progress charts...")
+    agent.create_training_charts()
+    
+    # 🚪 CLEANUP
+    # ==========
     env.close()
+    
+    print(f"🎉 Your AI race car driver is now trained and saved as '{final_model_name}'!")
     return agent
 
-def test_agent(model_path, num_episodes=5, render=True):
-    """Test a trained agent"""
-    print(f"Testing trained agent from {model_path}")
+def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
+    """
+    🧪 Test how well our trained AI performs!
     
-    # Create environment and agent
-    env = F1RaceEnvironment(render=render)
+    This function loads a trained AI and lets it play several games
+    to see how skilled it has become.
+    
+    Args:
+        model_path (str): Path to the trained AI model file
+        num_test_episodes (int): How many test games to play
+        show_games (bool): Whether to show the games visually
+        
+    Returns:
+        list: Scores achieved in test episodes
+    """
+    print(f"🧪 TESTING TRAINED AI")
+    print("=" * 30)
+    print(f"📂 Loading model: {model_path}")
+    print(f"🎮 Test episodes: {num_test_episodes}")
+    
+    # 🏗️ CREATE TESTING ENVIRONMENT AND LOAD TRAINED AI
+    # =================================================
+    env = F1RaceEnvironment(render=show_games)
     agent = DQNAgent(
         state_size=env.state_space_size,
         action_size=env.action_space_size
     )
     
-    # Load trained model
-    agent.load(model_path)
-    agent.epsilon = 0.0  # No exploration during testing
+    # 📂 LOAD THE TRAINED AI "BRAIN"
+    # ==============================
+    agent.load_agent(model_path)
+    agent.epsilon = 0.0  # No exploration during testing - use pure skill!
     
+    print("🤖 AI loaded successfully!")
+    print("🎯 Testing mode: No exploration (pure skill)")
+    print("-" * 30)
+    
+    # 📊 TEST RESULTS TRACKING
+    # =======================
     test_scores = []
+    test_episode_lengths = []
     
-    for episode in range(num_episodes):
-        state = env.reset()
+    # 🎮 RUN TEST EPISODES
+    # ===================
+    for episode in range(num_test_episodes):
+        current_state = env.reset()
         total_reward = 0
         steps = 0
         
-        print(f"\nTest Episode {episode + 1}")
+        print(f"\n🎮 Test Episode {episode + 1}")
+        print("   Watch the AI show off its skills! 🏆")
         
+        # 🏁 PLAY ONE COMPLETE GAME
+        # =========================
         while True:
-            # Choose action (no exploration)
-            action = agent.act(state, training=False)
+            # 🎯 AI CHOOSES BEST ACTION (no randomness)
+            # ========================================
+            action = agent.choose_action(current_state, training_mode=False)
             
-            # Take action
-            next_state, reward, done, info = env.step(action)
+            # 🎬 TAKE ACTION
+            # ==============
+            next_state, reward, game_over, info = env.step(action)
             
-            state = next_state
-            total_reward += reward
-            steps += 1
+            # 📊 UPDATE TRACKING
+            # ==================
+            current_state = next_state
+            total_reward = total_reward + reward
+            steps = steps + 1
             
-            if render:
+            # 🎨 SHOW GAME
+            # ============
+            if show_games:
                 env.render()
-                time.sleep(0.03)  # Slow down for viewing
+                time.sleep(0.03)  # Slower for better viewing
             
-            if done:
+            # 🏁 CHECK IF GAME ENDED
+            # ======================
+            if game_over:
                 break
         
-        test_scores.append(info['score'])
-        print(f"Episode {episode + 1} completed: Score = {info['score']}, Steps = {steps}, Total Reward = {total_reward:.2f}")
+        # 📊 RECORD TEST RESULTS
+        # =====================
+        final_score = info['score']
+        test_scores.append(final_score)
+        test_episode_lengths.append(steps)
+        
+        print(f"   ✅ Episode {episode + 1} Results:")
+        print(f"      🏆 Score: {final_score}")
+        print(f"      📏 Steps survived: {steps}")
+        print(f"      🎁 Total reward: {total_reward:.2f}")
     
-    print(f"\nTest Results:")
-    print(f"Average Score: {np.mean(test_scores):.2f}")
-    print(f"Best Score: {max(test_scores)}")
-    print(f"All Scores: {test_scores}")
+    # 📊 CALCULATE FINAL TEST STATISTICS
+    # ==================================
+    avg_score = sum(test_scores) / len(test_scores)
+    best_test_score = max(test_scores)
+    avg_length = sum(test_episode_lengths) / len(test_episode_lengths)
     
+    print(f"\n🏆 FINAL TEST RESULTS")
+    print("=" * 25)
+    print(f"📊 Average Score: {avg_score:.2f}")
+    print(f"🥇 Best Score: {best_test_score}")
+    print(f"📏 Average Episode Length: {avg_length:.1f} steps")
+    print(f"🎯 All Scores: {test_scores}")
+    
+    # 🚪 CLEANUP
+    # ==========
     env.close()
     return test_scores
 
-def random_baseline(num_episodes=10):
-    """Test random agent as baseline"""
-    print("Testing random agent baseline...")
+def test_random_driver(num_episodes=10):
+    """
+    🎲 Test a completely random driver as baseline comparison
     
+    This shows how badly a random (untrained) driver performs,
+    which helps us appreciate how much our AI has learned!
+    
+    Args:
+        num_episodes (int): Number of random games to play
+        
+    Returns:
+        list: Scores achieved by random driver
+    """
+    print("🎲 TESTING RANDOM DRIVER (BASELINE)")
+    print("=" * 40)
+    print("This shows what happens without AI training! 😅")
+    
+    # 🎮 CREATE ENVIRONMENT
+    # ====================
     env = F1RaceEnvironment(render=True)
     random_scores = []
+    random_lengths = []
     
+    # 🎮 PLAY RANDOM GAMES
+    # ===================
     for episode in range(num_episodes):
-        state = env.reset()
+        env.reset()
         steps = 0
         
+        print(f"\n🎲 Random Episode {episode + 1}")
+        print("   Watching chaos unfold... 💥")
+        
         while True:
-            # Random action
-            action = np.random.choice(env.action_space_size)
+            # 🎲 CHOOSE COMPLETELY RANDOM ACTION
+            # =================================
+            random_action = np.random.choice(env.action_space_size)
             
-            _, _, done, info = env.step(action)
-            steps += 1
+            # 🎬 TAKE RANDOM ACTION
+            # ====================
+            _, _, game_over, info = env.step(random_action)
+            steps = steps + 1
             
+            # 🎨 SHOW THE CHAOS
+            # =================
             env.render()
             time.sleep(0.03)
             
-            if done:
+            if game_over:
                 break
         
-        random_scores.append(info['score'])
-        print(f"Random Episode {episode + 1}: Score = {info['score']}, Steps = {steps}")
+        # 📊 RECORD RANDOM RESULTS
+        # =======================
+        score = info['score']
+        random_scores.append(score)
+        random_lengths.append(steps)
+        
+        print(f"   💥 Episode {episode + 1}: Score = {score}, Steps = {steps}")
     
-    print(f"Random Agent Average Score: {np.mean(random_scores):.2f}")
+    # 📊 RANDOM DRIVER STATISTICS
+    # ===========================
+    avg_random_score = sum(random_scores) / len(random_scores)
+    avg_random_length = sum(random_lengths) / len(random_lengths)
+    
+    print(f"\n📊 RANDOM DRIVER RESULTS:")
+    print(f"   📊 Average Score: {avg_random_score:.2f}")
+    print(f"   📏 Average Length: {avg_random_length:.1f} steps")
+    print(f"   🎯 All Scores: {random_scores}")
+    print("   💡 This is why we need AI training! 🤖")
+    
     env.close()
     return random_scores
 
+# 🎮 MAIN PROGRAM INTERFACE
+# =========================
 if __name__ == "__main__":
-    print("F1 Race AI Training System")
+    print("🏎️  F1 RACE AI TRAINING SYSTEM")
     print("=" * 50)
+    print("Welcome to the AI Driver Training Center! 🎓")
+    print()
     
-    # Check if we have a saved model to test
-    model_files = [f for f in os.listdir('.') if f.endswith('.pth')]
+    # 📂 CHECK FOR EXISTING TRAINED MODELS
+    # ====================================
+    saved_models = [f for f in os.listdir('.') if f.endswith('.pth')]
     
-    if model_files:
-        print(f"Found saved models: {model_files}")
-        choice = input("Enter 'train' to train new model, 'test' to test existing model, or 'baseline' for random baseline: ").lower()
+    if saved_models:
+        print("📂 Found existing trained models:")
+        for i, model in enumerate(saved_models):
+            print(f"   {i}: {model}")
+        print()
+    
+    # 🎯 MENU OPTIONS
+    # ===============
+    print("🎯 What would you like to do?")
+    print("   📚 'train'    - Train a new AI driver from scratch")
+    print("   🧪 'test'     - Test an existing trained model") 
+    print("   🎲 'baseline' - Watch a random (untrained) driver fail")
+    print()
+    
+    # 👤 GET USER CHOICE
+    # ==================
+    user_choice = input("Enter your choice: ").lower().strip()
+    
+    # 🚀 EXECUTE USER CHOICE
+    # ======================
+    if user_choice == 'train':
+        print("\n🏋️ TRAINING MODE SELECTED")
+        print("-" * 30)
+        
+        # Get training parameters
+        show_visual = input("🎨 Show training visually? (y/n, default=n): ").lower().strip() == 'y'
+        episodes_input = input("🎮 Number of episodes (default=2000): ").strip()
+        episodes = int(episodes_input) if episodes_input else 2000
+        
+        # Start training
+        print(f"\n🚀 Starting training for {episodes} episodes...")
+        trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual)
+        
+        # Offer to test the newly trained agent
+        test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'
+        if test_new:
+            test_trained_ai('f1_race_ai_final_model.pth', num_test_episodes=5)
+    
+    elif user_choice == 'test' and saved_models:
+        print("\n🧪 TESTING MODE SELECTED")  
+        print("-" * 25)
+        
+        # Show available models
+        print("📂 Available models:")
+        for i, model in enumerate(saved_models):
+            print(f"   {i}: {model}")
+        
+        # Get model selection
+        model_choice = int(input("🎯 Select model number: "))
+        selected_model = saved_models[model_choice]
+        
+        # Get test parameters  
+        test_episodes_input = input("🎮 Number of test episodes (default=5): ").strip()
+        test_episodes = int(test_episodes_input) if test_episodes_input else 5
+        
+        # Run test
+        test_trained_ai(selected_model, num_test_episodes=test_episodes)
+    
+    elif user_choice == 'baseline':
+        print("\n🎲 BASELINE MODE SELECTED")
+        print("-" * 30)
+        
+        baseline_episodes_input = input("🎮 Number of random episodes (default=10): ").strip()
+        baseline_episodes = int(baseline_episodes_input) if baseline_episodes_input else 10
+        
+        print("\n⚠️  Warning: This will be painful to watch! 😅")
+        input("Press Enter to continue...")
+        
+        test_random_driver(num_episodes=baseline_episodes)
+    
+    elif user_choice == 'test' and not saved_models:
+        print("\n❌ No trained models found!")
+        print("   💡 Please train a model first using 'train' option")
+    
     else:
-        print("No saved models found.")
-        choice = input("Enter 'train' to train new model or 'baseline' for random baseline: ").lower()
+        print("\n❌ Invalid choice or no models available")
+        print("   💡 Valid options: 'train', 'test', 'baseline'")
     
-    if choice == 'train':
-        # Train the agent
-        render_choice = input("Render training? (y/n): ").lower() == 'y'
-        episodes = int(input("Number of episodes (default 2000): ") or "2000")
-        
-        agent = train_agent(episodes=episodes, render_training=render_choice)
-        
-        # Test the trained agent
-        test_choice = input("Test the trained agent? (y/n): ").lower() == 'y'
-        if test_choice:
-            test_agent('dqn_model_final.pth', num_episodes=5)
-    
-    elif choice == 'test' and model_files:
-        # Test existing model
-        print("Available models:")
-        for i, model in enumerate(model_files):
-            print(f"{i}: {model}")
-        
-        model_idx = int(input("Select model index: "))
-        model_path = model_files[model_idx]
-        
-        num_episodes = int(input("Number of test episodes (default 5): ") or "5")
-        test_agent(model_path, num_episodes=num_episodes)
-    
-    elif choice == 'baseline':
-        # Test random baseline
-        num_episodes = int(input("Number of baseline episodes (default 10): ") or "10")
-        random_baseline(num_episodes=num_episodes)
-    
-    else:
-        print("Invalid choice or no models available.")
-    
-    print("Program finished!")
+    print("\n🎉 Thanks for using the F1 Race AI Training System!")
+    print("👋 Happy AI training! 🤖🏎️")
