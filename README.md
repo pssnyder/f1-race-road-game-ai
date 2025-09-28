@@ -71,18 +71,33 @@ pip install pygame torch torchvision numpy matplotlib
 ```bash
 python train_ai.py
 # Choose 'train' → Watch your AI learn from terrible to awesome! 🎭
+# Final model saved to: models/final/f1_race_ai_final_model.pth
+# Charts saved to: results/charts/ai_training_progress.png
 ```
 
 ### 3️⃣ Test Your Trained AI
 ```bash
 python train_ai.py  
 # Choose 'test' → Watch your AI show off its skills! 😎
+# You can select from models in: project root, models/, models/final/, models/checkpoints/
 ```
 
 ### 4️⃣ Compare with Random Baseline
 ```bash
 python train_ai.py
 # Choose 'baseline' → See how much better AI is than random! 🎲
+```
+
+### 5️⃣ Resume Training from a Checkpoint
+```bash
+python train_ai.py
+# Choose 'resume' → Pick a checkpoint from models/checkpoints/ to continue training
+```
+
+### 6️⃣ View the Last Training Chart
+```bash
+python train_ai.py
+# Choose 'chart' → Opens results/charts/ai_training_progress.png if available
 ```
 
 ## 🎯 How the AI Learns: The Magic Explained

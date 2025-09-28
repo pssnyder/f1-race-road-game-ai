@@ -48,7 +48,7 @@ import time
 import os
 
 def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=500, 
-                   show_training=False):
+                   show_training=False, resume_checkpoint: str | None = None):
     """
     🏋️ Train the AI to become an expert F1 race car driver!
     
@@ -95,6 +95,9 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         memory_size=MEMORY_SIZE,
         batch_size=BATCH_SIZE
     )
+    if resume_checkpoint and os.path.isfile(resume_checkpoint):
+        print(f"📂 Resuming from checkpoint: {resume_checkpoint}")
+        agent.load_agent(resume_checkpoint)
     
     # 📊 DISPLAY TRAINING CONFIGURATION
     # =================================
@@ -478,6 +481,8 @@ if __name__ == "__main__":
     print("🎯 What would you like to do?")
     print("   📚 'train'    - Train a new AI driver from scratch")
     print("   🧪 'test'     - Test an existing trained model") 
+    print("   🔁 'resume'   - Resume training from a checkpoint")
+    print("   🖼️  'chart'    - View the last training chart if available")
     print("   🎲 'baseline' - Watch a random (untrained) driver fail")
     print()
     
@@ -526,6 +531,42 @@ if __name__ == "__main__":
         # Run test
         test_trained_ai(selected_model, num_test_episodes=test_episodes)
     
+    elif user_choice == 'resume':
+        print("\n🔁 RESUME MODE SELECTED")
+        print("-" * 30)
+        # Filter checkpoints
+        checkpoints = [m for m in saved_models if 'checkpoint' in os.path.basename(m) or 'ai_driver_checkpoint_episode_' in os.path.basename(m)]
+        if not checkpoints:
+            print("❌ No checkpoints found. Train first to create checkpoints.")
+        else:
+            print("📂 Available checkpoints:")
+            for i, model in enumerate(checkpoints):
+                print(f"   {i}: {model}")
+            idx = int(input("🎯 Select checkpoint number: "))
+            resume_path = checkpoints[idx]
+            show_visual = input("🎨 Show training visually? (y/n, default=n): ").lower().strip() == 'y'
+            episodes_input = input("🎮 Additional episodes to train (default=500): ").strip()
+            episodes = int(episodes_input) if episodes_input else 500
+            print(f"\n🚀 Resuming training for {episodes} episodes from {resume_path}...")
+            train_racing_ai(episodes=episodes, show_training=show_visual, resume_checkpoint=resume_path)
+
+    elif user_choice == 'chart':
+        print("\n🖼️  VIEW CHART MODE")
+        print("-" * 20)
+        chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
+        if os.path.isfile(chart_path):
+            try:
+                img = plt.imread(chart_path)
+                plt.figure(figsize=(8, 6))
+                plt.imshow(img)
+                plt.axis('off')
+                plt.title('Last Training Progress')
+                plt.show()
+            except Exception as _err:
+                print(f"📊 Chart saved at: {chart_path}")
+        else:
+            print("❌ No chart found yet. Train first to generate one.")
+
     elif user_choice == 'baseline':
         print("\n🎲 BASELINE MODE SELECTED")
         print("-" * 30)
