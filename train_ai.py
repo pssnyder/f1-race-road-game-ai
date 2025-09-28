@@ -42,8 +42,8 @@ Created for: Learning Labs Portfolio 🌟
 
 import numpy as np
 import matplotlib.pyplot as plt
-from f1_race_env import F1RaceEnvironment
-from dqn_agent import DQNAgent
+from src.environment import F1RaceEnvironment
+from src.agent import DQNAgent
 import time
 import os
 
@@ -165,10 +165,10 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         
         # 📈 RECORD EPISODE RESULTS
         # ========================
-        episode_score = info['score']
+        episode_score = int(info['score'])
         all_scores.append(episode_score)
         all_episode_lengths.append(steps_taken)
-        agent.episode_scores.append(episode_score)
+        agent.episode_scores.append(int(episode_score))
         
         # 🎯 UPDATE TARGET NETWORK PERIODICALLY
         # ====================================
@@ -207,7 +207,8 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         # 💾 SAVE PROGRESS PERIODICALLY
         # =============================
         if episode_number % save_frequency == 0 and episode_number > 0:
-            checkpoint_filename = f'ai_driver_checkpoint_episode_{episode_number}.pth'
+            os.makedirs('models/checkpoints', exist_ok=True)
+            checkpoint_filename = os.path.join('models', 'checkpoints', f'ai_driver_checkpoint_episode_{episode_number}.pth')
             agent.save_agent(checkpoint_filename)
             print(f"   💾 Progress saved: {checkpoint_filename}")
     
@@ -230,13 +231,25 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     
     # 💾 SAVE FINAL TRAINED MODEL
     # ===========================
-    final_model_name = 'f1_race_ai_final_model.pth'
+    os.makedirs('models/final', exist_ok=True)
+    final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
     agent.save_agent(final_model_name)
     
     # 📊 CREATE TRAINING CHARTS
     # =========================
     print("📊 Creating training progress charts...")
-    agent.create_training_charts()
+    chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
+    agent.create_training_charts(out_path=chart_path)
+    # Try to show the chart for a friendly finish; fall back to path-only
+    try:
+        img = plt.imread(chart_path)
+        plt.figure(figsize=(8, 6))
+        plt.imshow(img)
+        plt.axis('off')
+        plt.title('Training Progress')
+        plt.show()
+    except Exception as _display_err:
+        print(f"📊 Chart saved at: {chart_path}")
     
     # 🚪 CLEANUP
     # ==========
@@ -444,7 +457,15 @@ if __name__ == "__main__":
     
     # 📂 CHECK FOR EXISTING TRAINED MODELS
     # ====================================
-    saved_models = [f for f in os.listdir('.') if f.endswith('.pth')]
+    # Gather models from root and models directories
+    saved_models = []
+    root_models = [f for f in os.listdir('.') if f.endswith('.pth')]
+    saved_models.extend(root_models)
+    for subdir in ['models', os.path.join('models', 'final'), os.path.join('models', 'checkpoints')]:
+        if os.path.isdir(subdir):
+            for f in os.listdir(subdir):
+                if f.endswith('.pth'):
+                    saved_models.append(os.path.join(subdir, f))
     
     if saved_models:
         print("📂 Found existing trained models:")
@@ -482,7 +503,8 @@ if __name__ == "__main__":
         # Offer to test the newly trained agent
         test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'
         if test_new:
-            test_trained_ai('f1_race_ai_final_model.pth', num_test_episodes=5)
+            final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
+            test_trained_ai(final_model_name, num_test_episodes=5)
     
     elif user_choice == 'test' and saved_models:
         print("\n🧪 TESTING MODE SELECTED")  
