@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+
+# Model artifacts and logs
+models/checkpoints/
+results/logs/
+results/charts/*.png
+*.pth
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

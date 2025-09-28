@@ -1,0 +1,1 @@
+Training charts are saved here (e.g., ai_training_progress.png).
