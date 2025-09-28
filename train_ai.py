@@ -276,9 +276,13 @@ def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
     # 📂 LOAD THE TRAINED AI "BRAIN"
     # ==============================
     agent.load_agent(model_path)
-    agent.epsilon = 0.0  # No exploration during testing - use pure skill!
+    
+    # 🔧 PERFORMANCE FIX: Explicitly disable exploration
+    original_epsilon = agent.epsilon
+    agent.epsilon = 0.0  # Completely disable exploration for testing
     
     print("🤖 AI loaded successfully!")
+    print(f"🔧 Original epsilon: {original_epsilon:.4f} → Testing epsilon: {agent.epsilon:.4f}")
     print("🎯 Testing mode: No exploration (pure skill)")
     print("-" * 30)
     
@@ -299,10 +303,13 @@ def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
         
         # 🏁 PLAY ONE COMPLETE GAME
         # =========================
+        action_counts = [0, 0, 0]  # Track action usage [stay, left, right]
+        
         while True:
             # 🎯 AI CHOOSES BEST ACTION (no randomness)
             # ========================================
             action = agent.choose_action(current_state, training_mode=False)
+            action_counts[action] += 1  # Count this action
             
             # 🎬 TAKE ACTION
             # ==============
@@ -335,6 +342,7 @@ def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
         print(f"      🏆 Score: {final_score}")
         print(f"      📏 Steps survived: {steps}")
         print(f"      🎁 Total reward: {total_reward:.2f}")
+        print(f"      🎮 Actions - Stay: {action_counts[0]}, Left: {action_counts[1]}, Right: {action_counts[2]}")
     
     # 📊 CALCULATE FINAL TEST STATISTICS
     # ==================================

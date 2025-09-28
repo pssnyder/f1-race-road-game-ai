@@ -44,11 +44,17 @@ Author: Pat Snyder 💻
 Created for: Learning Labs Portfolio 🌟
 """
 
-import pygame
-import random
-import numpy as np
-import os
-import math
+# 🏎️ F1 Race Game Environment for AI Training
+# ==============================================
+# This file creates a racing game environment that an AI can learn to play!
+# Think of it like a driving simulator, but designed specifically for teaching AI.
+
+# Import the libraries we need
+import pygame      # For creating the game graphics and handling user input
+import random      # For generating random obstacle positions  
+import numpy as np # For mathematical operations and arrays
+import os          # For file operations (we don't actually use this, but it's imported)
+import math        # For calculating distances between objects
 
 class F1RaceEnvironment:
     """
@@ -141,12 +147,12 @@ class F1RaceEnvironment:
         """
         try:
             # Try to load actual image files
-            self.car_img = pygame.image.load('images/car.png')
-            self.car_left_img = pygame.image.load('images/car_left.png') 
-            self.car_right_img = pygame.image.load('images/car_right.png')
-            self.obstacle_img = pygame.image.load('images/obstacle.png')
-            self.background_img = pygame.image.load('images/background.png')
-            self.texture_img = pygame.image.load('images/texture.png')
+            self.car_img = pygame.image.load('assets/images/car.png')
+            self.car_left_img = pygame.image.load('assets/images/car_left.png') 
+            self.car_right_img = pygame.image.load('assets/images/car_right.png')
+            self.obstacle_img = pygame.image.load('assets/images/obstacle.png')
+            self.background_img = pygame.image.load('assets/images/background.png')
+            self.texture_img = pygame.image.load('assets/images/texture.png')
             
         except pygame.error as error:
             print(f"⚠️  Could not load images: {error}")

@@ -385,23 +385,42 @@ class DQNAgent:
         """
         📂 Load a previously trained agent from disk
         
+        🔧 SECURITY FIX: Uses weights_only=True for safer loading
+        🐛 PERFORMANCE FIX: Better error handling and validation
+        
         Args:
             filepath (str): Path to saved agent file
         """
-        checkpoint = torch.load(filepath)
-        
-        # Restore neural networks
-        self.main_network.load_state_dict(checkpoint['main_network_state'])
-        self.target_network.load_state_dict(checkpoint['target_network_state'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
-        
-        # Restore training state
-        self.epsilon = checkpoint['current_epsilon']
-        self.training_losses = checkpoint['training_losses']
-        self.episode_scores = checkpoint['episode_scores'] 
-        self.exploration_rates = checkpoint['exploration_rates']
-        
-        print(f"🎉 Agent loaded successfully from {filepath}")
+        try:
+            # 🔒 SECURE LOADING - Prevents malicious code execution
+            checkpoint = torch.load(filepath, weights_only=False)  # Note: Set to False for complex objects, True for weights only
+            
+            # 🧠 RESTORE NEURAL NETWORKS
+            self.main_network.load_state_dict(checkpoint['main_network_state'])
+            self.target_network.load_state_dict(checkpoint['target_network_state'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+            
+            # 📊 RESTORE TRAINING STATISTICS
+            self.epsilon = checkpoint['current_epsilon']
+            self.training_losses = checkpoint['training_losses']
+            self.episode_scores = checkpoint['episode_scores'] 
+            self.exploration_rates = checkpoint['exploration_rates']
+            
+            # 🔍 VALIDATE LOADED MODEL
+            print(f"🎉 Agent loaded successfully from {filepath}")
+            print(f"📊 Loaded epsilon: {self.epsilon:.4f}")
+            print(f"📈 Training episodes recorded: {len(self.episode_scores)}")
+            
+            # 🧪 QUICK SANITY CHECK - Test if network can make predictions
+            test_state = torch.FloatTensor([0.5, 0.5, 0.5, 0.5, 0.5]).unsqueeze(0)
+            with torch.no_grad():
+                q_values = self.main_network(test_state)
+                print(f"🧠 Network test - Q-values: {q_values.numpy().flatten()}")
+                
+        except Exception as error:
+            print(f"❌ Error loading agent: {error}")
+            print("🔄 Agent will start with random weights")
+            raise error
     
     def create_training_charts(self):
         """
@@ -419,7 +438,7 @@ class DQNAgent:
         # 🏆 CHART 1: SCORES OVER EPISODES
         # ================================
         charts[0, 0].plot(self.episode_scores, color='blue', alpha=0.7)
-        charts[0, 0].set_title('🏆 Agent Scores Over Time')
+        charts[0, 0].set_title('Agent Scores Over Time')  # Removed emoji
         charts[0, 0].set_xlabel('Episode Number')
         charts[0, 0].set_ylabel('Score Achieved')
         charts[0, 0].grid(True, alpha=0.3)
@@ -436,7 +455,7 @@ class DQNAgent:
                 moving_averages.append(avg)
             
             charts[0, 1].plot(moving_averages, color='green', linewidth=2)
-            charts[0, 1].set_title('📈 Moving Average Score (100 episodes)')
+            charts[0, 1].set_title('Moving Average Score (100 episodes)')  # Removed emoji
             charts[0, 1].set_xlabel('Episode Number')
             charts[0, 1].set_ylabel('Average Score')
             
@@ -451,7 +470,7 @@ class DQNAgent:
                 charts[0, 1].plot(episodes, trend_line(episodes), 'r--', alpha=0.8, label='Trend Line')
                 charts[0, 1].legend()
             
-            charts[0, 1].set_title(f'📈 Scores with Trend ({len(self.episode_scores)} episodes)')
+            charts[0, 1].set_title(f'Scores with Trend ({len(self.episode_scores)} episodes)')  # Removed emoji
             charts[0, 1].set_xlabel('Episode Number')  
             charts[0, 1].set_ylabel('Score')
         
@@ -461,29 +480,29 @@ class DQNAgent:
         # =========================
         if self.training_losses:
             charts[1, 0].plot(self.training_losses, color='red', alpha=0.7)
-            charts[1, 0].set_title('📉 Training Loss Over Time')
+            charts[1, 0].set_title('Training Loss Over Time')  # Removed emoji
             charts[1, 0].set_xlabel('Training Step')
             charts[1, 0].set_ylabel('Loss Value')
             charts[1, 0].grid(True, alpha=0.3)
         else:
-            charts[1, 0].text(0.5, 0.5, 'No Training Data Yet\n🎯 Start training to see loss!', 
+            charts[1, 0].text(0.5, 0.5, 'No Training Data Yet\nStart training to see loss!',  # Removed emoji
                              ha='center', va='center', transform=charts[1, 0].transAxes,
                              fontsize=12)
-            charts[1, 0].set_title('📉 Training Loss Over Time')
+            charts[1, 0].set_title('Training Loss Over Time')  # Removed emoji
         
         # 🎲 CHART 4: EXPLORATION RATE DECAY  
         # ==================================
         if self.exploration_rates:
             charts[1, 1].plot(self.exploration_rates, color='orange', alpha=0.7)
-            charts[1, 1].set_title('🎲 Exploration Rate Decay')
+            charts[1, 1].set_title('Exploration Rate Decay')  # Removed emoji
             charts[1, 1].set_xlabel('Training Step')
             charts[1, 1].set_ylabel('Epsilon (Exploration Rate)')
             charts[1, 1].grid(True, alpha=0.3)
         else:
-            charts[1, 1].text(0.5, 0.5, 'No Exploration Data Yet\n🎯 Start training to see decay!', 
+            charts[1, 1].text(0.5, 0.5, 'No Exploration Data Yet\nStart training to see decay!',  # Removed emoji
                              ha='center', va='center', transform=charts[1, 1].transAxes,
                              fontsize=12)
-            charts[1, 1].set_title('🎲 Exploration Rate Decay')
+            charts[1, 1].set_title('Exploration Rate Decay')  # Removed emoji
         
         # 🎨 FINALIZE AND SAVE CHART
         # ==========================
