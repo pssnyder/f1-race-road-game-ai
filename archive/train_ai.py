@@ -99,12 +99,12 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     # 🎛️ TRAINING CONFIGURATION - Easy to modify!
     # ===========================================
     LEARNING_RATE = 0.001        # 📚 How fast AI learns (0.001 = stable default)
-    DISCOUNT_FACTOR = 0.99       # 🔮 How much AI cares about future (0.99 = forward-thinking)
-    EXPLORATION_START = 1.0      # 🎲 Initial randomness (100% random at start)
+    DISCOUNT_FACTOR = 0.95       # 🔮 How much AI cares about future (0.95 = forward-thinking)
+    EXPLORATION_START = 0.98      # 🎲 Initial randomness (98% random at start)
     EXPLORATION_END = 0.01       # 🎲 Final randomness (1% random when expert)
     EXPLORATION_DECAY = 0.995    # 📉 How fast to reduce randomness (0.995 = gradual)
-    MEMORY_SIZE = 10000         # 🧠 How many experiences to remember
-    BATCH_SIZE = 32             # 📦 How many experiences to learn from at once
+    MEMORY_SIZE = 15000         # 🧠 How many experiences to remember
+    BATCH_SIZE = 64             # 📦 How many experiences to learn from at once
     
     # 🏗️ CREATE TRAINING ENVIRONMENT AND AI AGENT
     # ============================================
