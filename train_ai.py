@@ -143,9 +143,17 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     
     # 📊 TRAINING METRICS - Track AI's progress
     # ========================================
-    all_scores = []           # Score from each episode
-    all_episode_lengths = []  # How long each episode lasted
-    best_score_ever = 0       # Best score achieved so far
+    # Initialize scores from checkpoint if resuming
+    if resume_checkpoint and agent.episode_scores:
+        all_scores = agent.episode_scores.copy()  # Include previous scores for averages
+        all_episode_lengths = []  # Episode lengths aren't saved, so start fresh
+        best_score_ever = max(agent.episode_scores)
+        print(f"📊 Restored {len(all_scores)} previous episodes with best score: {best_score_ever}")
+    else:
+        all_scores = []           # Score from each episode
+        all_episode_lengths = []  # How long each episode lasted
+        best_score_ever = 0       # Best score achieved so far
+    
     training_start_time = time.time()
     
     # 🏋️ MAIN TRAINING LOOP
