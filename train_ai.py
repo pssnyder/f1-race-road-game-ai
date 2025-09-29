@@ -650,8 +650,15 @@ if __name__ == "__main__":
     elif user_choice == 'resume':
         print("\n🔁 RESUME MODE SELECTED")
         print("-" * 30)
-        # Filter checkpoints
-        checkpoints = [m for m in saved_models if 'checkpoint' in os.path.basename(m) or 'ai_driver_checkpoint_episode_' in os.path.basename(m)]
+        # Filter checkpoints - include regular checkpoints AND interrupted training files
+        checkpoints = []
+        for m in saved_models:
+            filename = os.path.basename(m)
+            # Include regular checkpoints, interrupted training files, and any file with "episode" in name
+            if ('checkpoint' in filename or 
+                'interrupted_episode' in filename or 
+                'ai_driver_checkpoint_episode_' in filename):
+                checkpoints.append(m)
         
         # Sort checkpoints by modification time (most recent first) 
         checkpoints.sort(key=lambda x: os.path.getmtime(x), reverse=True)
