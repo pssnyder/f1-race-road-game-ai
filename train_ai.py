@@ -46,6 +46,30 @@ from src.environment import F1RaceEnvironment
 from src.agent import DQNAgent
 import time
 import os
+import signal
+import sys
+
+import signal
+import sys
+
+# Global flag for graceful shutdown
+graceful_shutdown = False
+
+def signal_handler(signum, frame):
+    """Handle Ctrl+C gracefully"""
+    global graceful_shutdown
+    print("\n\n🛑 GRACEFUL SHUTDOWN REQUESTED")
+    print("=" * 50)
+    print("🔄 Finishing current episode and saving progress...")
+    print("💾 Please wait for clean shutdown...")
+    print("   (Press Ctrl+C again to force quit)")
+    graceful_shutdown = True
+    
+    # Set up handler for second Ctrl+C to force quit
+    signal.signal(signal.SIGINT, lambda s, f: sys.exit(1))
+
+# Set up the signal handler
+signal.signal(signal.SIGINT, signal_handler)
 
 def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=500, 
                    show_training=False, resume_checkpoint: str | None = None,
@@ -127,9 +151,24 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     # 🏋️ MAIN TRAINING LOOP
     # =====================
     print("🚀 STARTING TRAINING!")
-    print("Watch the AI transform from terrible to talented! 🎓\n")
+    print("Watch the AI transform from terrible to talented! 🎓")
+    print("💡 Press Ctrl+C anytime for graceful shutdown (saves progress)")
+    print()
     
-    for episode_number in range(episodes):
+    # If resuming, start from the current episode count
+    start_episode = len(agent.episode_scores) if resume_checkpoint else 0
+    if start_episode > 0:
+        print(f"📂 Resuming from episode {start_episode} (continuing where we left off)")
+    
+    for episode_idx in range(episodes):
+        # 🛑 CHECK FOR GRACEFUL SHUTDOWN
+        # ==============================
+        if graceful_shutdown:
+            print(f"\n🛑 Graceful shutdown at episode {start_episode + episode_idx}")
+            break
+            
+        episode_number = start_episode + episode_idx  # Actual episode number for display
+        
         # 🔄 START NEW EPISODE
         # ===================
         current_state = env.reset()
@@ -140,6 +179,12 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         # 🎮 PLAY ONE COMPLETE GAME
         # ========================
         while True:
+            # 🛑 CHECK FOR GRACEFUL SHUTDOWN DURING EPISODE
+            # =============================================
+            if graceful_shutdown:
+                print(f"   🛑 Graceful shutdown during episode {episode_number}")
+                break
+                
             # 🤔 AI DECIDES WHAT TO DO
             # ========================
             action = agent.choose_action(current_state, training_mode=True)
@@ -183,12 +228,12 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         
         # 🎯 UPDATE TARGET NETWORK PERIODICALLY
         # ====================================
-        if episode_number % target_update_frequency == 0:
+        if episode_idx % target_update_frequency == 0:
             agent.copy_to_target_network()
         
         # 📊 DISPLAY PROGRESS UPDATES
         # ===========================
-        show_progress = (episode_number % 100 == 0 or episode_score > best_score_ever)
+        show_progress = (episode_idx % 100 == 0 or episode_score > best_score_ever)
         
         if show_progress:
             episode_time = time.time() - episode_start_time
@@ -217,7 +262,7 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         
         # 💾 SAVE PROGRESS PERIODICALLY
         # =============================
-        if episode_number % save_frequency == 0 and episode_number > 0:
+        if episode_idx % save_frequency == 0 and episode_idx > 0:
             os.makedirs('models/checkpoints', exist_ok=True)
             checkpoint_filename = os.path.join('models', 'checkpoints', f'ai_driver_checkpoint_episode_{episode_number}.pth')
             agent.save_agent(checkpoint_filename)
@@ -225,33 +270,53 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         
         # 📊 UPDATE CHARTS PERIODICALLY
         # =============================
-        if episode_number % chart_update_frequency == 0 and episode_number > 0:
+        if episode_idx % chart_update_frequency == 0 and episode_idx > 0:
             print(f"   📊 Updating training charts...")
             os.makedirs('results/charts', exist_ok=True)
             chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
             agent.create_training_charts(out_path=chart_path)
     
-    # 🏆 TRAINING COMPLETED!
-    # =====================
+    # 🏆 TRAINING COMPLETED OR INTERRUPTED!
+    # =====================================
     total_training_time = time.time() - training_start_time
+    actual_episodes = len(agent.episode_scores) - (len(agent.episode_scores) if not resume_checkpoint else len(agent.episode_scores) - start_episode)
     
-    print("\n" + "=" * 50)
-    print("🎓 TRAINING COMPLETED SUCCESSFULLY!")
-    print("=" * 50)
+    if graceful_shutdown:
+        print("\n" + "=" * 50)
+        print("🛑 TRAINING GRACEFULLY INTERRUPTED")
+        print("=" * 50)
+        print("✅ Current progress has been preserved!")
+    else:
+        print("\n" + "=" * 50)
+        print("🎓 TRAINING COMPLETED SUCCESSFULLY!")
+        print("=" * 50)
     
     # 📊 FINAL STATISTICS
     # ==================
-    final_avg_score = sum(all_scores[-100:]) / min(100, len(all_scores))
-    print(f"🏆 Best score achieved: {best_score_ever}")
-    print(f"📈 Final average score: {final_avg_score:.2f}")
+    if len(all_scores) > 0:
+        final_avg_score = sum(all_scores[-100:]) / min(100, len(all_scores))
+        print(f"🏆 Best score achieved: {best_score_ever}")
+        print(f"📈 Final average score: {final_avg_score:.2f}")
+    else:
+        print(f"🏆 Best score achieved: {best_score_ever}")
+        print("📈 No episodes completed")
+        
     print(f"⏱️  Total training time: {total_training_time/60:.1f} minutes")
-    print(f"🎮 Episodes completed: {episodes}")
+    print(f"🎮 Episodes completed: {len(agent.episode_scores)}")
     print(f"🧠 Final exploration rate: {agent.epsilon:.4f}")
     
-    # 💾 SAVE FINAL TRAINED MODEL
-    # ===========================
+    # 💾 SAVE CURRENT STATE (ALWAYS SAVE ON SHUTDOWN)
+    # ===============================================
     os.makedirs('models/final', exist_ok=True)
-    final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
+    if graceful_shutdown:
+        # Save with a special graceful shutdown name
+        current_episode = len(agent.episode_scores)
+        final_model_name = os.path.join('models', 'final', f'f1_race_ai_interrupted_episode_{current_episode}.pth')
+        print(f"💾 Saving interrupted training state...")
+    else:
+        final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
+        print(f"💾 Saving final trained model...")
+    
     agent.save_agent(final_model_name)
     
     # 📊 CREATE TRAINING CHARTS
@@ -268,7 +333,12 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     # ==========
     env.close()
     
-    print(f"🎉 Your AI race car driver is now trained and saved as '{final_model_name}'!")
+    if graceful_shutdown:
+        print(f"🎉 Your AI training was safely interrupted and saved as '{final_model_name}'!")
+        print("💡 You can resume training from this point using the 'resume' option.")
+    else:
+        print(f"🎉 Your AI race car driver is now trained and saved as '{final_model_name}'!")
+    
     return agent
 
 def test_trained_ai(model_path, num_test_episodes=5, show_games=True, framerate_multiplier: int = 100):

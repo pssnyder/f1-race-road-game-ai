@@ -102,17 +102,35 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             except:
                 pass
         
-        # Determine if training is active
+        # Improved training detection logic
         training_active = False
+        current_time = time.time()
+        
+        # Check if any model was updated recently (more sensitive - 30 seconds for checkpoints)
         if models:
-            latest_update = models[0]["last_modified"]
-            training_active = (time.time() - latest_update) < 120  # 2 minutes
+            latest_model_time = models[0]["last_modified"]
+            model_age = current_time - latest_model_time
+            training_active = model_age < 60  # 1 minute for model updates
+        
+        # Check if chart was updated recently (charts update every 100 episodes)
+        if chart_info["exists"]:
+            chart_stat = CHART_PATH.stat()
+            chart_age = current_time - chart_stat.st_mtime
+            # Charts are less frequent, so allow longer window
+            chart_recently_updated = chart_age < 300  # 5 minutes for chart updates
+            training_active = training_active or chart_recently_updated
+        
+        # If we have multiple recent checkpoints, that's a strong indicator of active training
+        if len(models) >= 2:
+            recent_models = [m for m in models if (current_time - m["last_modified"]) < 600]  # 10 minutes
+            if len(recent_models) >= 2:
+                training_active = True
         
         return {
             "status": {
                 "active": training_active,
                 "status": "🟢 Training Active" if training_active else "🔴 Training Idle",
-                "uptime": self.format_uptime(time.time() - start_time)
+                "uptime": self.format_uptime(current_time - start_time)
             },
             "chart": chart_info,
             "models": models[:5],
@@ -170,7 +188,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "type": "checkpoint"
                 })
         
-        # Sort by modification time
+        # Sort by modification time (most recent first) - this is correct for active training
         model_files.sort(key=lambda x: x["last_modified"], reverse=True)
         return model_files
     
