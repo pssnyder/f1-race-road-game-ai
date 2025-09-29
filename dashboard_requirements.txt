@@ -1,0 +1,11 @@
+# Web Dashboard Requirements for F1 Race AI Training Monitor
+# ==========================================================
+# 
+# Install these additional dependencies for the web dashboard:
+# pip install -r dashboard_requirements.txt
+
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Note: torch, matplotlib, numpy should already be installed 
+# from the main project requirements.txt

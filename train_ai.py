@@ -48,7 +48,8 @@ import time
 import os
 
 def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=500, 
-                   show_training=False, resume_checkpoint: str | None = None):
+                   show_training=False, resume_checkpoint: str | None = None,
+                   framerate_multiplier: int = 100, chart_update_frequency: int = 100):
     """
     🏋️ Train the AI to become an expert F1 race car driver!
     
@@ -60,6 +61,9 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         target_update_frequency (int): How often to update target network (100 = stable)
         save_frequency (int): How often to save progress (500 = reasonable backup)
         show_training (bool): Whether to show the game while training (False = faster)
+        resume_checkpoint (str | None): Path to checkpoint to resume from
+        framerate_multiplier (int): Speed multiplier 1-500 (100 = normal speed, 200 = 2x speed)
+        chart_update_frequency (int): How often to update training charts (100 = every 100 episodes)
         
     Returns:
         DQNAgent: The trained AI agent
@@ -81,7 +85,9 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     # 🏗️ CREATE TRAINING ENVIRONMENT AND AI AGENT
     # ============================================
     print("🏎️  Creating racing environment...")
-    env = F1RaceEnvironment(render=show_training)
+    # When not showing training, max out framerate for fastest training
+    effective_framerate = 500 if not show_training else framerate_multiplier
+    env = F1RaceEnvironment(render=show_training, framerate_multiplier=effective_framerate)
     
     print("🤖 Creating AI agent...")
     agent = DQNAgent(
@@ -107,6 +113,8 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     print(f"🔮 Discount factor: {DISCOUNT_FACTOR}")
     print(f"🎮 Training episodes: {episodes}")
     print(f"👁️  Show training: {show_training}")
+    print(f"⚡ Framerate multiplier: {effective_framerate}% ({'MAX' if effective_framerate == 500 else 'normal' if effective_framerate == 100 else 'custom'})")
+    print(f"📊 Chart update frequency: every {chart_update_frequency} episodes")
     print("-" * 50)
     
     # 📊 TRAINING METRICS - Track AI's progress
@@ -214,6 +222,14 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
             checkpoint_filename = os.path.join('models', 'checkpoints', f'ai_driver_checkpoint_episode_{episode_number}.pth')
             agent.save_agent(checkpoint_filename)
             print(f"   💾 Progress saved: {checkpoint_filename}")
+        
+        # 📊 UPDATE CHARTS PERIODICALLY
+        # =============================
+        if episode_number % chart_update_frequency == 0 and episode_number > 0:
+            print(f"   📊 Updating training charts...")
+            os.makedirs('results/charts', exist_ok=True)
+            chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
+            agent.create_training_charts(out_path=chart_path)
     
     # 🏆 TRAINING COMPLETED!
     # =====================
@@ -243,16 +259,10 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     print("📊 Creating training progress charts...")
     chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
     agent.create_training_charts(out_path=chart_path)
-    # Try to show the chart for a friendly finish; fall back to path-only
-    try:
-        img = plt.imread(chart_path)
-        plt.figure(figsize=(8, 6))
-        plt.imshow(img)
-        plt.axis('off')
-        plt.title('Training Progress')
-        plt.show()
-    except Exception as _display_err:
-        print(f"📊 Chart saved at: {chart_path}")
+    print(f"📊 Chart saved at: {chart_path}")
+    
+    # Don't show chart automatically - it blocks the program
+    # User can view it separately or via the dashboard
     
     # 🚪 CLEANUP
     # ==========
@@ -261,7 +271,7 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     print(f"🎉 Your AI race car driver is now trained and saved as '{final_model_name}'!")
     return agent
 
-def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
+def test_trained_ai(model_path, num_test_episodes=5, show_games=True, framerate_multiplier: int = 100):
     """
     🧪 Test how well our trained AI performs!
     
@@ -272,6 +282,7 @@ def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
         model_path (str): Path to the trained AI model file
         num_test_episodes (int): How many test games to play
         show_games (bool): Whether to show the games visually
+        framerate_multiplier (int): Speed multiplier 1-500 (100 = normal speed, 200 = 2x speed)
         
     Returns:
         list: Scores achieved in test episodes
@@ -283,7 +294,7 @@ def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
     
     # 🏗️ CREATE TESTING ENVIRONMENT AND LOAD TRAINED AI
     # =================================================
-    env = F1RaceEnvironment(render=show_games)
+    env = F1RaceEnvironment(render=show_games, framerate_multiplier=framerate_multiplier)
     agent = DQNAgent(
         state_size=env.state_space_size,
         action_size=env.action_space_size
@@ -378,7 +389,7 @@ def test_trained_ai(model_path, num_test_episodes=5, show_games=True):
     env.close()
     return test_scores
 
-def test_random_driver(num_episodes=10):
+def test_random_driver(num_episodes=10, framerate_multiplier: int = 100):
     """
     🎲 Test a completely random driver as baseline comparison
     
@@ -387,6 +398,7 @@ def test_random_driver(num_episodes=10):
     
     Args:
         num_episodes (int): Number of random games to play
+        framerate_multiplier (int): Speed multiplier 1-500 (100 = normal speed, 200 = 2x speed)
         
     Returns:
         list: Scores achieved by random driver
@@ -397,7 +409,7 @@ def test_random_driver(num_episodes=10):
     
     # 🎮 CREATE ENVIRONMENT
     # ====================
-    env = F1RaceEnvironment(render=True)
+    env = F1RaceEnvironment(render=True, framerate_multiplier=framerate_multiplier)
     random_scores = []
     random_lengths = []
     
@@ -479,11 +491,16 @@ if __name__ == "__main__":
     # 🎯 MENU OPTIONS
     # ===============
     print("🎯 What would you like to do?")
-    print("   📚 'train'    - Train a new AI driver from scratch")
-    print("   🧪 'test'     - Test an existing trained model") 
-    print("   🔁 'resume'   - Resume training from a checkpoint")
+    print("   📚 'train'    - Train a new AI driver from scratch (with framerate & chart options)")
+    print("   🧪 'test'     - Test an existing trained model (with framerate control)") 
+    print("   🔁 'resume'   - Resume training from a checkpoint (with framerate & chart options)")
     print("   🖼️  'chart'    - View the last training chart if available")
-    print("   🎲 'baseline' - Watch a random (untrained) driver fail")
+    print("   � 'dashboard'- Launch web dashboard for real-time training monitoring")
+    print("   �🎲 'baseline' - Watch a random (untrained) driver fail (with framerate control)")
+    print()
+    print("   💡 NEW: Framerate multiplier (1-500%) controls training/testing speed!")
+    print("   💡 NEW: Charts update periodically during training for real-time progress!")
+    print("   💡 NEW: Web dashboard for monitoring training without terminal clutter!")
     print()
     
     # 👤 GET USER CHOICE
@@ -501,15 +518,31 @@ if __name__ == "__main__":
         episodes_input = input("🎮 Number of episodes (default=2000): ").strip()
         episodes = int(episodes_input) if episodes_input else 2000
         
+        # Get framerate configuration
+        if show_visual:
+            framerate_input = input("⚡ Framerate multiplier 1-500% (default=100): ").strip()
+            framerate = int(framerate_input) if framerate_input and framerate_input.isdigit() else 100
+            framerate = max(1, min(500, framerate))  # Clamp to valid range
+        else:
+            framerate = 500  # Max speed for headless training
+            print("⚡ Using maximum framerate (500%) for headless training")
+        
+        # Get chart update frequency
+        chart_freq_input = input("📊 Chart update frequency in episodes (default=100): ").strip()
+        chart_freq = int(chart_freq_input) if chart_freq_input and chart_freq_input.isdigit() else 100
+        
         # Start training
         print(f"\n🚀 Starting training for {episodes} episodes...")
-        trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual)
+        print(f"   ⚡ Framerate: {framerate}%")
+        print(f"   📊 Charts will update every {chart_freq} episodes")
+        trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual, 
+                                       framerate_multiplier=framerate, chart_update_frequency=chart_freq)
         
         # Offer to test the newly trained agent
         test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'
         if test_new:
             final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
-            test_trained_ai(final_model_name, num_test_episodes=5)
+            test_trained_ai(final_model_name, num_test_episodes=5, framerate_multiplier=100)
     
     elif user_choice == 'test' and saved_models:
         print("\n🧪 TESTING MODE SELECTED")  
@@ -528,8 +561,13 @@ if __name__ == "__main__":
         test_episodes_input = input("🎮 Number of test episodes (default=5): ").strip()
         test_episodes = int(test_episodes_input) if test_episodes_input else 5
         
+        # Get framerate configuration for testing
+        framerate_input = input("⚡ Framerate multiplier 1-500% (default=100): ").strip()
+        framerate = int(framerate_input) if framerate_input and framerate_input.isdigit() else 100
+        framerate = max(1, min(500, framerate))
+        
         # Run test
-        test_trained_ai(selected_model, num_test_episodes=test_episodes)
+        test_trained_ai(selected_model, num_test_episodes=test_episodes, framerate_multiplier=framerate)
     
     elif user_choice == 'resume':
         print("\n🔁 RESUME MODE SELECTED")
@@ -547,8 +585,31 @@ if __name__ == "__main__":
             show_visual = input("🎨 Show training visually? (y/n, default=n): ").lower().strip() == 'y'
             episodes_input = input("🎮 Additional episodes to train (default=500): ").strip()
             episodes = int(episodes_input) if episodes_input else 500
+            
+            # Get framerate configuration  
+            if show_visual:
+                framerate_input = input("⚡ Framerate multiplier 1-500% (default=100): ").strip()
+                framerate = int(framerate_input) if framerate_input and framerate_input.isdigit() else 100
+                framerate = max(1, min(500, framerate))
+            else:
+                framerate = 500  # Max speed for headless training
+                print("⚡ Using maximum framerate (500%) for headless training")
+            
+            # Get chart update frequency
+            chart_freq_input = input("📊 Chart update frequency in episodes (default=100): ").strip()
+            chart_freq = int(chart_freq_input) if chart_freq_input and chart_freq_input.isdigit() else 100
+            
             print(f"\n🚀 Resuming training for {episodes} episodes from {resume_path}...")
-            train_racing_ai(episodes=episodes, show_training=show_visual, resume_checkpoint=resume_path)
+            print(f"   ⚡ Framerate: {framerate}%")  
+            print(f"   📊 Charts will update every {chart_freq} episodes")
+            trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual, resume_checkpoint=resume_path,
+                           framerate_multiplier=framerate, chart_update_frequency=chart_freq)
+            
+            # Offer to test the newly trained agent
+            test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'
+            if test_new:
+                final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
+                test_trained_ai(final_model_name, num_test_episodes=5, framerate_multiplier=100)
 
     elif user_choice == 'chart':
         print("\n🖼️  VIEW CHART MODE")
@@ -567,6 +628,39 @@ if __name__ == "__main__":
         else:
             print("❌ No chart found yet. Train first to generate one.")
 
+    elif user_choice == 'dashboard':
+        print("\n🌐 DASHBOARD MODE SELECTED")
+        print("-" * 30)
+        print("🚀 Starting web dashboard for real-time training monitoring...")
+        print()
+        print("📊 The dashboard provides:")
+        print("   • Real-time training charts")
+        print("   • Live statistics and metrics")
+        print("   • Training status monitoring")
+        print("   • Model information")
+        print()
+        print("🌍 Dashboard will open at: http://localhost:5000")
+        print("💡 Run training in another terminal: python train_ai.py")
+        print()
+        
+        try:
+            # Use the simple standalone dashboard
+            import subprocess
+            import sys
+            dashboard_script = os.path.join(os.path.dirname(__file__), 'dashboard_simple.py')
+            if os.path.exists(dashboard_script):
+                print("🎯 Launching standalone dashboard...")
+                subprocess.run([sys.executable, dashboard_script])
+            else:
+                print("❌ Dashboard script not found!")
+                print("💡 Try running: python dashboard_simple.py")
+                
+        except KeyboardInterrupt:
+            print("\n🛑 Dashboard stopped")
+        except Exception as e:
+            print(f"❌ Error starting dashboard: {e}")
+            print("💡 Try running: python dashboard_simple.py")
+
     elif user_choice == 'baseline':
         print("\n🎲 BASELINE MODE SELECTED")
         print("-" * 30)
@@ -574,10 +668,15 @@ if __name__ == "__main__":
         baseline_episodes_input = input("🎮 Number of random episodes (default=10): ").strip()
         baseline_episodes = int(baseline_episodes_input) if baseline_episodes_input else 10
         
+        # Get framerate configuration for baseline
+        framerate_input = input("⚡ Framerate multiplier 1-500% (default=100): ").strip()
+        framerate = int(framerate_input) if framerate_input and framerate_input.isdigit() else 100
+        framerate = max(1, min(500, framerate))
+        
         print("\n⚠️  Warning: This will be painful to watch! 😅")
         input("Press Enter to continue...")
         
-        test_random_driver(num_episodes=baseline_episodes)
+        test_random_driver(num_episodes=baseline_episodes, framerate_multiplier=framerate)
     
     elif user_choice == 'test' and not saved_models:
         print("\n❌ No trained models found!")

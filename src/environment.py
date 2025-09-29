@@ -32,7 +32,7 @@ class F1RaceEnvironment:
 		[car_x_norm, obstacle_x_norm, obstacle_closeness, speed_ratio, distance_ratio]
 	"""
 
-	def __init__(self, render: bool = True) -> None:
+	def __init__(self, render: bool = True, framerate_multiplier: int = 100) -> None:
 		pygame.init()
 
 		# Display
@@ -46,6 +46,14 @@ class F1RaceEnvironment:
 			# Headless surface for fast training
 			self.game_display = pygame.Surface((self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
 		self.clock = pygame.time.Clock()
+		
+		# Framerate configuration (1-500 representing % speed increase)
+		self.framerate_multiplier = max(1, min(500, framerate_multiplier))  # Clamp to valid range
+		self.base_fps = 60  # Base framerate
+		self.target_fps = int(self.base_fps * (self.framerate_multiplier / 100.0))
+		# When headless, use maximum framerate for fastest training
+		if not self.render_game:
+			self.target_fps = 0  # Unlimited FPS for headless mode
 
 		# Colors
 		self.BLACK = (0, 0, 0)
@@ -234,7 +242,14 @@ class F1RaceEnvironment:
 		self.game_display.blit(font.render(f"Score: {self.score}", True, self.GREEN), (10, 10))
 		self.game_display.blit(font.render(f"Speed: {self.obstacle_speed:.1f}", True, self.GREEN), (10, 35))
 		self.game_display.blit(font.render(f"Frames: {self.frames_survived}", True, self.GREEN), (10, 60))
+		# Show framerate multiplier when different from 100%
+		if self.framerate_multiplier != 100:
+			self.game_display.blit(font.render(f"FPS: {self.framerate_multiplier}%", True, self.GREEN), (10, 85))
 		pygame.display.update()
+		
+		# Apply framerate limiting when rendering (0 = unlimited)
+		if self.target_fps > 0:
+			self.clock.tick(self.target_fps)
 
 	def close(self) -> None:
 		pygame.quit()
