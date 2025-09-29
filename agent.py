@@ -354,12 +354,18 @@ class DQNAgent:
         # =========================
         self.training_losses.append(loss.item())
         
-        # 📉 REDUCE EXPLORATION OVER TIME
-        # ===============================
-        if self.epsilon > self.EPSILON_END:
-            self.epsilon = self.epsilon * self.EPSILON_DECAY
-            
+        # Note: Epsilon decay moved to trainer (per episode, not per step)
         self.exploration_rates.append(self.epsilon)
+    
+    def decay_epsilon(self):
+        """
+        📉 Reduce Exploration Over Time (called once per episode)
+        
+        This gradually reduces the randomness in action selection as 
+        the AI gets smarter. Called by trainer at the end of each episode.
+        """
+        if self.epsilon > self.EPSILON_END:
+            self.epsilon *= self.EPSILON_DECAY
     
     def save_agent(self, filepath):
         """

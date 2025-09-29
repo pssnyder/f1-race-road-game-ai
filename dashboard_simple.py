@@ -259,11 +259,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
-        .container { max-width: 1200px; margin: 0 auto; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; min-width: 950px; }
+        .container { max-width: none; margin: 0 auto; min-width: 950px; }
         .header { text-align: center; background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
         .card { background: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .grid { 
+            display: grid; 
+            grid-template-columns: minmax(250px, 1fr) minmax(250px, 1fr) minmax(400px, 2fr); 
+            gap: 20px; 
+            align-items: start;
+            min-width: 900px;
+        }
         .stat { text-align: center; padding: 10px; background: #f8f9fa; border-radius: 5px; margin: 5px; }
         .stat-value { font-size: 1.5em; font-weight: bold; color: #007bff; }
         .status-active { color: #28a745; }
@@ -284,19 +290,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         <div class="grid">
             <div class="card">
                 <h2>📊 Training Statistics</h2>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                    <div class="stat">
-                        <div class="stat-value" id="episodes">--</div>
-                        <div>Episodes</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value" id="best-score">--</div>
-                        <div>Best Score</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value" id="avg-score">--</div>
-                        <div>Avg Score</div>
-                    </div>
+                <div class="stat">
+                    <div class="stat-value" id="episodes">--</div>
+                    <div>Episodes</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="best-score">--</div>
+                    <div>Best Score</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="avg-score">--</div>
+                    <div>Avg Score</div>
                 </div>
             </div>
             
@@ -305,7 +309,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 <div id="models" class="loading">Loading...</div>
             </div>
             
-            <div class="card" style="grid-column: 1 / -1;">
+            <div class="card">
                 <h2>📈 Training Progress Chart</h2>
                 <div id="chart-container" style="text-align: center;">
                     <div class="loading">Chart will appear once training begins</div>
