@@ -652,12 +652,19 @@ if __name__ == "__main__":
         print("-" * 30)
         # Filter checkpoints
         checkpoints = [m for m in saved_models if 'checkpoint' in os.path.basename(m) or 'ai_driver_checkpoint_episode_' in os.path.basename(m)]
+        
+        # Sort checkpoints by modification time (most recent first) 
+        checkpoints.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        
         if not checkpoints:
             print("❌ No checkpoints found. Train first to create checkpoints.")
         else:
-            print("📂 Available checkpoints:")
+            print("📂 Available checkpoints (most recent first):")
             for i, model in enumerate(checkpoints):
-                print(f"   {i}: {model}")
+                # Show modification time for clarity
+                mod_time = os.path.getmtime(model)
+                mod_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(mod_time))
+                print(f"   {i}: {model} ({mod_time_str})")
             idx = int(input("🎯 Select checkpoint number: "))
             resume_path = checkpoints[idx]
             show_visual = input("🎨 Show training visually? (y/n, default=n): ").lower().strip() == 'y'
