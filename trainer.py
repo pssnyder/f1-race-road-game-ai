@@ -70,6 +70,7 @@ import os
 import signal
 import sys
 import torch
+from training_status import start_training_session, update_training_status, end_training_session, update_charts_with_status
 
 import signal
 import sys
@@ -193,6 +194,34 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     print(f"📊 Chart update frequency: every {chart_update_frequency} episodes")
     print("-" * 50)
     
+    # 🎯 START TRAINING STATUS TRACKING
+    # =================================
+    training_config = {
+        "episodes": episodes,
+        "show_training": show_training,
+        "framerate_multiplier": framerate_multiplier,
+        "chart_update_frequency": chart_update_frequency,
+        "exploration_completion_ratio": exploration_completion_ratio,
+        "exploration_decay_type": exploration_decay_type,
+        "exploration_start": EXPLORATION_START,
+        "exploration_end": EXPLORATION_END,
+        "exploration_decay": EXPLORATION_DECAY
+    }
+    
+    model_info = {
+        "state_size": env.state_space_size,
+        "action_size": env.action_space_size,
+        "is_resume": resume_checkpoint is not None,
+        "resume_path": resume_checkpoint if resume_checkpoint else "New training"
+    }
+    
+    # Determine training mode
+    training_mode = "resume" if resume_checkpoint else "new"
+    
+    # Start status tracking
+    start_training_session(training_mode, episodes, training_config, model_info)
+    print(f"📊 Real-time status tracking started")
+    
     # 📊 TRAINING METRICS - Track AI's progress
     # ========================================
     # Initialize scores from checkpoint if resuming
@@ -286,7 +315,11 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         all_episode_lengths.append(steps_taken)
         agent.episode_scores.append(int(episode_score))
         
-        # 📉 DECAY EXPLORATION (once per episode, not per step!)
+        # � UPDATE REAL-TIME STATUS
+        # ==========================
+        update_training_status(episode_idx + 1, episode_score, agent.epsilon)
+        
+        # �📉 DECAY EXPLORATION (once per episode, not per step!)
         # =====================================================
         agent.decay_epsilon()
         
@@ -339,6 +372,10 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
             os.makedirs('results/charts', exist_ok=True)
             chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
             agent.create_training_charts(save_path=chart_path)
+            
+            # Update status system with chart info
+            update_charts_with_status(chart_path)
+            print(f"   ✅ Chart updated and status synced")
     
     # 🏆 TRAINING COMPLETED OR INTERRUPTED!
     # =====================================
@@ -388,7 +425,18 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     print("📊 Creating training progress charts...")
     chart_path = os.path.join('results', 'charts', 'ai_training_progress.png')
     agent.create_training_charts(save_path=chart_path)
+    update_charts_with_status(chart_path)
     print(f"📊 Chart saved at: {chart_path}")
+    
+    # 📊 END TRAINING STATUS TRACKING
+    # ===============================
+    final_score = all_scores[-1] if all_scores else 0
+    end_training_session(final_score)
+    
+    if graceful_shutdown:
+        print(f"📊 Training status: Interrupted gracefully at episode {len(agent.episode_scores)}")
+    else:
+        print(f"📊 Training status: Session completed successfully")
     
     # Don't show chart automatically - it blocks the program
     # User can view it separately or via the dashboard

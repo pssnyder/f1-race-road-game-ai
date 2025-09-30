@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """
-🌐 F1 Race AI Web Dashboard - Standalone Version
-================================================
+🌐 F1 Race AI Web Dashboard - Enhanced Version
+==============================================
 
 A simple web server that monitors F1 Race AI training progress
-in real-time without requiring complex dependencies.
-
-This version uses Python's built-in HTTP server with basic
-HTML/CSS/JavaScript for maximum compatibility.
+in real-time with integration to the training status system.
 """
 
 import json
@@ -26,6 +23,7 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 CHARTS_DIR = RESULTS_DIR / "charts"
 MODELS_DIR = PROJECT_ROOT / "models"
 CHART_PATH = CHARTS_DIR / "ai_training_progress.png"
+STATUS_FILE = RESULTS_DIR / "training_status.json"
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -87,7 +85,59 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_error(404, "API endpoint not found")
     
     def get_training_status(self):
-        """Get current training status and metrics"""
+        """Get current training status from enhanced status system"""
+        try:
+            # First try to load from enhanced training status system
+            if STATUS_FILE.exists():
+                with open(STATUS_FILE, 'r') as f:
+                    status_data = json.load(f)
+                
+                # Use enhanced status if available
+                return {
+                    "status": {
+                        "active": status_data.get("is_training", False),
+                        "status": "🟢 Training Active" if status_data.get("is_training", False) else "🔴 Training Idle",
+                        "mode": status_data.get("training_mode", "unknown"),
+                        "uptime": self.calculate_uptime(status_data.get("start_time"))
+                    },
+                    "progress": {
+                        "current_episode": status_data.get("current_episode", 0),
+                        "total_episodes": status_data.get("total_episodes", 0),
+                        "percentage": (status_data.get("current_episode", 0) / max(status_data.get("total_episodes", 1), 1)) * 100
+                    },
+                    "metrics": {
+                        "current_score": status_data.get("current_score", 0),
+                        "best_score": status_data.get("best_score", 0),
+                        "average_score": round(status_data.get("average_score", 0), 2),
+                        "epsilon": round(status_data.get("current_epsilon", 0), 4)
+                    },
+                    "performance": status_data.get("performance_metrics", {}),
+                    "chart": self.get_chart_info(),
+                    "models": self.get_latest_models()[:3],
+                    "last_update": status_data.get("last_update"),
+                    "enhanced": True
+                }
+        
+        except Exception as e:
+            print(f"Enhanced status failed: {e}")
+        
+        # Fallback to original method
+        return self.get_legacy_training_status()
+    
+    def calculate_uptime(self, start_time_str):
+        """Calculate training uptime"""
+        if not start_time_str:
+            return "Unknown"
+        
+        try:
+            start_time = datetime.fromisoformat(start_time_str)
+            uptime_seconds = (datetime.now() - start_time).total_seconds()
+            return self.format_uptime(uptime_seconds)
+        except:
+            return "Unknown"
+    
+    def get_legacy_training_status(self):
+        """Legacy training status detection (fallback)"""
         # Check chart info
         chart_info = self.get_chart_info()
         
@@ -135,6 +185,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "chart": chart_info,
             "models": models[:5],
             "model_stats": model_stats,
+            "enhanced": False,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
     
