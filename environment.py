@@ -88,10 +88,12 @@ class F1RaceEnvironment:
         # ========================================
         self.SCREEN_WIDTH = 400          # 📏 Game window width
         self.SCREEN_HEIGHT = 600         # 📏 Game window height  
-        self.CAR_SPEED = 8              # 🚗 How fast car moves left/right
+        self.CAR_SPEED = 12             # 🚗 How fast car moves left/right (increased from 8)
         self.INITIAL_OBSTACLE_SPEED = 5  # 🚧 Starting obstacle speed
         self.SPEED_INCREASE = 0.5        # 📈 Speed increase per obstacle passed
         self.MAX_SPEED = 20             # 🏎️ Maximum obstacle speed
+        self.VISION_DISTANCE = 150      # 👁️ How far ahead AI can "see" obstacles (pixels)
+        self.LOOKAHEAD_STEPS = 10       # 🔮 How many frames ahead to predict obstacle position
         
         # 🎨 COLOR PALETTE - RGB values (Red, Green, Blue)
         # ===============================================
@@ -108,6 +110,8 @@ class F1RaceEnvironment:
         self.SURVIVAL_REWARD = 0.1      # ✨ Small reward for each frame survived
         self.DODGE_BONUS = 10           # 🎯 Bonus for successfully dodging obstacle
         self.MOVEMENT_COST = -0.01      # 🔋 Small cost for unnecessary movement
+        self.EARLY_EVASION_BONUS = 5    # 🎯 Bonus for moving away from obstacles early
+        self.CLOSE_CALL_PENALTY = -2   # ⚠️ Small penalty for getting too close to obstacles
         
         # 🎬 SETUP DISPLAY
         # ================
@@ -139,7 +143,7 @@ class F1RaceEnvironment:
         # 🎯 AI CONFIGURATION
         # ===================
         self.action_space_size = 3      # 0=stay, 1=left, 2=right
-        self.state_space_size = 5       # 5 numbers describing game state
+        self.state_space_size = 7       # 7 numbers describing game state (enhanced with vision)
         
         # 🎮 START THE GAME!
         # ==================
@@ -213,15 +217,17 @@ class F1RaceEnvironment:
         """
         📊 Get current game state as numbers the AI can understand
         
-        The AI sees the game as 5 numbers between 0 and 1:
+        The AI sees the game as 7 numbers between 0 and 1:
         1. Where is my car? (0=far left, 1=far right)
         2. Where is the obstacle? (0=far left, 1=far right)  
         3. How close is the obstacle? (0=very far, 1=very close)
         4. How fast are obstacles moving? (0=slow, 1=fast)
         5. What's my distance from the obstacle? (0=collision, 1=safe)
+        6. Where will the obstacle be in a few frames? (0=far left, 1=far right)
+        7. How urgent is the threat? (0=safe, 1=must move now!)
         
         Returns:
-            numpy.array: 5 normalized values representing game state
+            numpy.array: 7 normalized values representing game state
         """
         # 📍 NORMALIZE POSITIONS (convert to 0-1 scale)
         # ============================================
@@ -248,14 +254,31 @@ class F1RaceEnvironment:
         max_distance = math.sqrt(self.SCREEN_WIDTH**2 + self.SCREEN_HEIGHT**2)
         distance_ratio = total_distance / max_distance
         
-        # 📦 PACKAGE STATE FOR AI
+        # � PREDICT FUTURE OBSTACLE POSITION (Enhanced Vision)
+        # =====================================================
+        future_obstacle_y = self.obstacle_y + (self.obstacle_speed * self.LOOKAHEAD_STEPS)
+        future_obstacle_position = self.obstacle_x / self.SCREEN_WIDTH  # X doesn't change, but normalize for consistency
+        
+        # 🚨 CALCULATE THREAT URGENCY
+        # ===========================
+        # How urgent is it to move? Based on distance and if obstacle is on collision course
+        threat_urgency = 0.0
+        if self.obstacle_y > -self.VISION_DISTANCE:  # Only if obstacle is within vision range
+            if horizontal_distance < 50:  # If obstacle is roughly in our lane (50 pixel threshold)
+                # More urgent if obstacle is closer and faster
+                threat_urgency = max(0.0, 1.0 - (vertical_distance / self.VISION_DISTANCE))
+                threat_urgency *= speed_ratio  # Factor in speed - faster obstacles are more urgent
+        
+        # �📦 PACKAGE STATE FOR AI
         # =======================
         state = np.array([
             car_position,          # My car's position
             obstacle_position,     # Obstacle's position  
             obstacle_closeness,    # How close obstacle is
             speed_ratio,          # How fast game is going
-            distance_ratio        # Overall distance to obstacle
+            distance_ratio,       # Overall distance to obstacle
+            future_obstacle_position,  # Where obstacle will be (X doesn't change, but included for consistency)
+            threat_urgency        # How urgent is the threat (0=safe, 1=move now!)
         ], dtype=np.float32)
         
         return state
@@ -408,6 +431,8 @@ class F1RaceEnvironment:
         - Small reward for surviving (teaches "stay alive!")
         - Big bonus for dodging obstacles (teaches "avoid obstacles!")
         - Small penalty for moving unnecessarily (teaches "be efficient!")
+        - Bonus for early evasion (teaches "react early, not late!")
+        - Penalty for close calls (teaches "maintain safe distance!")
         
         Returns:
             float: The reward value (positive=good, negative=bad)
@@ -434,6 +459,25 @@ class F1RaceEnvironment:
         # ========================================
         if self.car_direction != 0:  # Car is moving left or right
             reward = reward + self.MOVEMENT_COST
+        
+        # 🎯 ENHANCED REWARDS FOR BETTER DECISION MAKING
+        # ==============================================
+        horizontal_distance = abs(self.car_x - self.obstacle_x)
+        vertical_distance = abs(self.car_y - self.obstacle_y)
+        
+        # Early evasion bonus: reward moving away from obstacles when they're still far
+        if (self.obstacle_y > -self.VISION_DISTANCE and 
+            self.obstacle_y < self.car_y - 100 and  # Obstacle is ahead but not too close
+            self.car_direction != 0):  # Car is actively moving
+            
+            # Check if car is moving away from obstacle
+            if ((self.obstacle_x < self.car_x and self.car_direction == 1) or  # Obstacle left, moving right
+                (self.obstacle_x > self.car_x and self.car_direction == -1)):  # Obstacle right, moving left
+                reward += self.EARLY_EVASION_BONUS
+        
+        # Close call penalty: discourage getting too close to obstacles
+        if (vertical_distance < 60 and horizontal_distance < 40):  # Very close to obstacle
+            reward += self.CLOSE_CALL_PENALTY
             
         return reward
     
