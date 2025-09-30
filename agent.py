@@ -238,6 +238,13 @@ class DQNAgent:
         self.target_network = DQN(state_size, action_size)    # Stable target for training
         self.optimizer = optim.Adam(self.main_network.parameters(), lr=learning_rate)
         
+        # 📚 LEARNING RATE SCHEDULING - Reduces instability over time
+        # ===========================================================
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=500, verbose=True, min_lr=0.0001
+        )
+        self.current_lr = learning_rate
+        
         # 📚 MEMORY SYSTEM
         # ================
         self.memory = ReplayBuffer(memory_size)
@@ -354,8 +361,17 @@ class DQNAgent:
         # 🎓 UPDATE NEURAL NETWORK (the actual learning!)
         # ==============================================
         self.optimizer.zero_grad()    # Clear previous gradients
-        loss.backward()               # Calculate new gradients  
+        loss.backward()               # Calculate new gradients
+        
+        # 🛡️ GRADIENT CLIPPING - Prevents training instability
+        # ====================================================
+        torch.nn.utils.clip_grad_norm_(self.main_network.parameters(), max_norm=1.0)
+        
         self.optimizer.step()         # Update network weights
+        
+        # 📊 LEARNING RATE SCHEDULING - Reduce LR if loss plateaus
+        # ========================================================
+        self.scheduler.step(loss.item())
         
         # 📊 TRACK TRAINING PROGRESS
         # =========================
