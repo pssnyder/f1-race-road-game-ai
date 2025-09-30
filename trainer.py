@@ -317,7 +317,7 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         
         # � UPDATE REAL-TIME STATUS
         # ==========================
-        update_training_status(episode_idx + 1, episode_score, agent.epsilon)
+        update_training_status(episode_number, episode_score, agent.epsilon)
         
         # �📉 DECAY EXPLORATION (once per episode, not per step!)
         # =====================================================
