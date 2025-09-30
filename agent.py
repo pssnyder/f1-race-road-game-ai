@@ -491,10 +491,12 @@ class DQNAgent:
             print(f"📈 Training episodes recorded: {len(self.episode_scores)}")
             
             # 🧪 QUICK SANITY CHECK - Test if network can make predictions
-            test_state = torch.FloatTensor([0.5, 0.5, 0.5, 0.5, 0.5]).unsqueeze(0)
+            # Create test state with correct dimensions for this agent
+            test_values = [0.5] * self.state_size  # Use agent's actual state size
+            test_state = torch.FloatTensor(test_values).unsqueeze(0)
             with torch.no_grad():
                 q_values = self.main_network(test_state)
-                print(f"🧠 Network test - Q-values: {q_values.numpy().flatten()}")
+                print(f"🧠 Network test ({self.state_size}D) - Q-values: {q_values.numpy().flatten()}")
                 
         except Exception as error:
             print(f"❌ Error loading agent: {error}")

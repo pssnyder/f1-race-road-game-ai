@@ -1,0 +1,31 @@
+{
+  "is_training": false,
+  "training_mode": "test",
+  "current_episode": 15,
+  "total_episodes": 100,
+  "start_time": "2025-09-29T23:36:14.526591",
+  "last_update": "2025-09-29T23:36:14.528586",
+  "current_score": 15.5,
+  "current_epsilon": 0.85,
+  "best_score": 15.5,
+  "average_score": 12.0,
+  "recent_scores": [
+    8.5,
+    12.0,
+    15.5
+  ],
+  "exploration_rates": [
+    0.95,
+    0.9,
+    0.85
+  ],
+  "training_config": {
+    "test": true
+  },
+  "model_info": {},
+  "performance_metrics": {
+    "episodes_per_minute": 451127.81954887224,
+    "time_remaining_estimate": "0.0 minutes",
+    "total_training_time": 0.001995
+  }
+}
