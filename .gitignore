@@ -1,3 +1,7 @@
+# =========================
+# F1 Racing AI - Enhanced Model Management
+# =========================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -7,13 +11,117 @@ __pycache__/
 .venv/
 venv/
 
-# Model artifacts and logs
-models/checkpoints/
-results/logs/
-results/charts/*.png
-*.pth
+# =========================
+# MODEL FILES (Size Management)
+# =========================
 
-# OS / editor
+# Training checkpoints (too large, frequently changing)
+models/checkpoints/*.pth
+models/temp/
+*_checkpoint_episode_*.pth
+*interrupted_episode*.pth
+
+# Raw model files (use compressed/exported versions instead)
+*.pth
+*.model
+
+# BUT keep these model-related files:
+!models/model_registry.json       # Model metadata (small)
+!models/final/*.zip              # Compressed final models
+!models/export/*.zip             # Distribution packages
+
+# =========================
+# TRAINING ARTIFACTS
+# =========================
+
+# Training logs and charts (can be regenerated)
+results/logs/*.log
+results/charts/*.png
+training_*.log
+*.tmp
+*.temp
+
+# Large training data
+training_data/
+datasets/
+
+# =========================
+# SYSTEM FILES
+# =========================
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE files
 .idea/
-.vscode/
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# =========================
+# PYTHON SPECIFIC
+# =========================
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# =========================
+# NOTES FOR CONTRIBUTORS
+# =========================
+# 
+# Model Storage Strategy:
+# - Use model_manager.py for all model operations
+# - Compress models before committing (use export packages)
+# - Raw .pth files are auto-ignored to prevent accidents
+# - Use GitHub Releases for distributing large final models
+# - Keep model_registry.json for tracking metadata
+#
+# Quick commands:
+# - python trainer.py → models → export model package
+# - python trainer.py → cleanup (automated maintenance)
+#

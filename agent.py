@@ -373,6 +373,8 @@ class DQNAgent:
         training episodes for consistent exploration curves.
         
         Supports both exponential and linear decay patterns.
+        
+        NEW: Production-grade exploration management for resumption scenarios.
         """
         current_episode = len(self.episode_scores)
         
@@ -399,6 +401,44 @@ class DQNAgent:
             # 🔄 FALLBACK: Original decay method if adaptive parameters not set
             if self.epsilon > self.EPSILON_END:
                 self.epsilon *= self.EPSILON_DECAY
+    
+    def reset_exploration_for_model_extension(self, feature_expansion_ratio=0.4):
+        """
+        🔧 Reset exploration when extending model features (NEW)
+        
+        This handles the exploration rate when you add new features to your model.
+        Used when transitioning from 5-feature to 7-feature models.
+        
+        Args:
+            feature_expansion_ratio: How much to reset exploration (0.0-1.0)
+                                   0.4 = moderate reset for 2 new features out of 7
+        """
+        old_epsilon = self.epsilon
+        episodes_trained = len(self.episode_scores)
+        
+        # Calculate appropriate reset based on training history and feature expansion
+        if episodes_trained > 0:
+            # More episodes trained = more careful about disrupting learned behavior
+            disruption_factor = feature_expansion_ratio / (1.0 + episodes_trained / 10000)
+            
+            # Reset exploration for new features while preserving old knowledge
+            new_feature_epsilon = 0.3 * disruption_factor
+            preserved_epsilon = old_epsilon * (1 - disruption_factor)
+            
+            self.epsilon = new_feature_epsilon + preserved_epsilon
+        else:
+            # No training history - use moderate exploration
+            self.epsilon = 0.2 * feature_expansion_ratio
+        
+        # Ensure within valid range
+        self.epsilon = max(self.epsilon, self.EPSILON_END)
+        self.epsilon = min(self.epsilon, 1.0)
+        
+        print(f"🔧 Model extension: Epsilon {old_epsilon:.3f} → {self.epsilon:.3f}")
+        print(f"   Feature expansion: {feature_expansion_ratio*100:.0f}%")
+        print(f"   Episodes trained: {episodes_trained}")
+        
+        return self.epsilon
     
     def save_agent(self, filepath):
         """

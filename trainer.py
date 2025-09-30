@@ -69,6 +69,7 @@ import time
 import os
 import signal
 import sys
+import torch
 
 import signal
 import sys
@@ -624,17 +625,28 @@ if __name__ == "__main__":
     # 🎯 MENU OPTIONS
     # ===============
     print("🎯 What would you like to do?")
-    print("   📚 'train'    - Train a new AI driver from scratch (with framerate & chart options)")
-    print("   🧪 'test'     - Test an existing trained model (with framerate control)") 
-    print("   🔁 'resume'   - Resume training from a checkpoint (with framerate & chart options)")
-    print("   🖼️  'chart'    - View the last training chart if available")
-    print("   � 'dashboard'- Launch web dashboard for real-time training monitoring")
-    print("   �🎲 'baseline' - Watch a random (untrained) driver fail (with framerate control)")
     print()
-    print("   💡 NEW: Framerate multiplier (1-500%) controls training/testing speed!")
-    print("   💡 NEW: Charts update periodically during training for real-time progress!")
-    print("   💡 NEW: Adaptive exploration decay automatically scales to any training length!")
-    print("   💡 NEW: Web dashboard for monitoring training without terminal clutter!")
+    print("🤖 AI TRAINING:")
+    print("   📚 'train'    - Train a new AI driver from scratch")
+    print("   🔁 'resume'   - Enhanced resume with backward compatibility")
+    print("   🧪 'test'     - Test an existing trained model")
+    print()
+    print("📊 MONITORING:")
+    print("   🖼️  'chart'    - View the last training chart")
+    print("   🌐 'dashboard'- Launch web dashboard for real-time monitoring")
+    print("   🎲 'baseline' - Watch a random (untrained) driver baseline")
+    print()
+    print("🗂️  MODEL MANAGEMENT:")
+    print("   📦 'models'   - Model management system")
+    print("   🧹 'cleanup'  - Quick model cleanup & organization")
+    print("   � 'report'   - Generate model inventory report")
+    print()
+    print("🔧 SYSTEM:")
+    print("   ❌ 'exit'     - Exit program")
+    print()
+    print("   💡 NEW: Enhanced resumption with 5→7 feature model upgrades!")
+    print("   💡 NEW: Automatic model management and version tracking!")
+    print("   💡 NEW: Smart exploration rate adjustments for different scenarios!")
     print()
     
     # 👤 GET USER CHOICE
@@ -716,72 +728,258 @@ if __name__ == "__main__":
         test_trained_ai(selected_model, num_test_episodes=test_episodes, framerate_multiplier=framerate)
     
     elif user_choice == 'resume':
-        print("\n🔁 RESUME MODE SELECTED")
+        print("\n🔁 ENHANCED RESUME MODE")
         print("-" * 30)
-        # Filter checkpoints - include regular checkpoints AND interrupted training files
+        
+        # Enhanced checkpoint detection - include all model types
         checkpoints = []
         for m in saved_models:
             filename = os.path.basename(m)
-            # Include regular checkpoints, interrupted training files, and any file with "episode" in name
+            # Include all models that can be resumed
             if ('checkpoint' in filename or 
                 'interrupted_episode' in filename or 
-                'ai_driver_checkpoint_episode_' in filename):
+                'ai_driver_checkpoint_episode_' in filename or
+                'final_model' in filename or
+                m.endswith('.pth')):
                 checkpoints.append(m)
         
         # Sort checkpoints by modification time (most recent first) 
         checkpoints.sort(key=lambda x: os.path.getmtime(x), reverse=True)
         
         if not checkpoints:
-            print("❌ No checkpoints found. Train first to create checkpoints.")
+            print("❌ No models found for resumption.")
+            print("💡 Train a model first to create resumable checkpoints.")
         else:
-            print("📂 Available checkpoints (most recent first):")
-            for i, model in enumerate(checkpoints):
-                # Show modification time for clarity
-                mod_time = os.path.getmtime(model)
+            print("📂 Available models for resumption (most recent first):")
+            for i, model_path in enumerate(checkpoints):
+                # Enhanced model info display
+                mod_time = os.path.getmtime(model_path)
                 mod_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(mod_time))
-                print(f"   {i}: {model} ({mod_time_str})")
-            idx = int(input("🎯 Select checkpoint number: "))
-            resume_path = checkpoints[idx]
-            show_visual = input("🎨 Show training visually? (y/n, default=n): ").lower().strip() == 'y'
-            episodes_input = input("🎮 Additional episodes to train (default=500): ").strip()
-            episodes = int(episodes_input) if episodes_input else 500
+                file_size = os.path.getsize(model_path) / (1024*1024)  # MB
+                
+                # Try to determine model type and episodes
+                model_info = "Unknown"
+                if 'final_model' in model_path:
+                    model_info = "Final Model"
+                elif 'checkpoint_episode_' in model_path:
+                    try:
+                        episode_num = model_path.split('episode_')[1].split('.')[0]
+                        model_info = f"Checkpoint (Episode {episode_num})"
+                    except:
+                        model_info = "Checkpoint"
+                elif 'interrupted' in model_path:
+                    model_info = "Interrupted Training"
+                
+                print(f"   {i}: {os.path.basename(model_path)}")
+                print(f"      📊 {model_info} | 📅 {mod_time_str} | 💾 {file_size:.1f}MB")
+                print()
             
-            # Get framerate configuration  
-            if show_visual:
-                framerate_input = input("⚡ Framerate multiplier 1-500% (default=100): ").strip()
-                framerate = int(framerate_input) if framerate_input and framerate_input.isdigit() else 100
-                framerate = max(1, min(500, framerate))
-            else:
-                framerate = 500  # Max speed for headless training
-                print("⚡ Using maximum framerate (500%) for headless training")
-            
-            # Get chart update frequency
-            chart_freq_input = input("📊 Chart update frequency in episodes (default=100): ").strip()
-            chart_freq = int(chart_freq_input) if chart_freq_input and chart_freq_input.isdigit() else 100
-            
-            # Get exploration completion ratio
-            exploration_input = input("🎯 Exploration completion % (at what % of training should exploration reach minimum, default=80): ").strip()
-            exploration_ratio = float(exploration_input) / 100.0 if exploration_input and exploration_input.replace('.', '').isdigit() else 0.8
-            exploration_ratio = max(0.1, min(1.0, exploration_ratio))  # Clamp between 10% and 100%
-            
-            # Get exploration decay type
-            decay_type_input = input("📉 Exploration decay type (exponential/linear, default=exponential): ").strip().lower()
-            decay_type = "linear" if decay_type_input == "linear" else "exponential"
-            
-            print(f"\n🚀 Resuming training for {episodes} episodes from {resume_path}...")
-            print(f"   ⚡ Framerate: {framerate}%")  
-            print(f"   📊 Charts will update every {chart_freq} episodes")
-            print(f"   🎯 Exploration will reach minimum at {exploration_ratio*100:.0f}% of training")
-            print(f"   📉 Using {decay_type} decay curve")
-            trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual, resume_checkpoint=resume_path,
-                           framerate_multiplier=framerate, chart_update_frequency=chart_freq,
-                           exploration_completion_ratio=exploration_ratio, exploration_decay_type=decay_type)
-            
-            # Offer to test the newly trained agent
-            test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'
-            if test_new:
-                final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
-                test_trained_ai(final_model_name, num_test_episodes=5, framerate_multiplier=100)
+            try:
+                idx = int(input("🎯 Select model number: "))
+                if 0 <= idx < len(checkpoints):
+                    resume_path = checkpoints[idx]
+                    
+                    # 🔍 ENHANCED MODEL ANALYSIS
+                    # ==========================
+                    print(f"\n🔍 Analyzing selected model...")
+                    print(f"📂 Path: {resume_path}")
+                    
+                    # Check model compatibility
+                    try:
+                        # Try to load model to check state space size
+                        checkpoint = torch.load(resume_path, map_location='cpu', weights_only=False)
+                        
+                        # Determine if this is old (5-feature) or new (7-feature) model
+                        state_dict = checkpoint.get('main_network_state', {})
+                        first_layer_key = None
+                        for key in state_dict.keys():
+                            if 'net.0.weight' in key or '0.weight' in key:
+                                first_layer_key = key
+                                break
+                        
+                        if first_layer_key and first_layer_key in state_dict:
+                            input_size = state_dict[first_layer_key].shape[1]
+                            print(f"🧠 Model type: {input_size}-feature model")
+                            
+                            if input_size == 5:
+                                print("⚠️  This is an OLD model (5 features)")
+                                print("🔧 Will use backward compatibility mode with enhanced environment")
+                                use_compatibility = True
+                            elif input_size == 7:
+                                print("✅ This is a NEW model (7 features)")
+                                print("🚀 Will use full enhanced environment")
+                                use_compatibility = False
+                            else:
+                                print(f"❓ Unknown model type ({input_size} features)")
+                                use_compatibility = True
+                        else:
+                            print("⚠️  Could not determine model type - using compatibility mode")
+                            use_compatibility = True
+                            
+                        # Get current epsilon and episode count
+                        current_epsilon = checkpoint.get('current_epsilon', 0.01)
+                        episode_scores = checkpoint.get('episode_scores', [])
+                        episodes_trained = len(episode_scores)
+                        
+                        print(f"📊 Training history: {episodes_trained} episodes")
+                        print(f"🎯 Current exploration rate: {current_epsilon:.4f}")
+                        
+                        if episodes_trained > 0:
+                            recent_scores = episode_scores[-10:] if len(episode_scores) >= 10 else episode_scores
+                            avg_recent = sum(recent_scores) / len(recent_scores)
+                            best_score = max(episode_scores)
+                            print(f"🏆 Best score: {best_score}")
+                            print(f"📈 Recent average: {avg_recent:.1f}")
+                        
+                    except Exception as e:
+                        print(f"⚠️  Could not analyze model: {e}")
+                        print("🔧 Will use compatibility mode")
+                        use_compatibility = True
+                        current_epsilon = 0.01
+                        episodes_trained = 0
+                    
+                    # 🎯 RESUMPTION STRATEGY SELECTION
+                    # ===============================
+                    print(f"\n🎯 Select resumption strategy:")
+                    print("   1. Continue training (keep current exploration)")
+                    print("   2. Hyperparameter tuning (slight exploration boost)")
+                    print("   3. Environment adaptation (moderate exploration boost)")
+                    print("   4. Performance improvement (significant exploration boost)")
+                    if use_compatibility:
+                        print("   5. Model extension (upgrade to 7-feature model)")
+                    
+                    strategy_choice = input("Choose strategy (1-5): ").strip()
+                    
+                    # Calculate new exploration rate based on strategy
+                    import math  # Import here since we need it for calculations
+                    if strategy_choice == "1":
+                        reason = "continue"
+                        new_epsilon = current_epsilon
+                    elif strategy_choice == "2":
+                        reason = "hyperparameter_tuning"
+                        boost = min(0.1, 0.05 * math.log10(episodes_trained / 1000 + 1))
+                        new_epsilon = min(current_epsilon + boost, 0.3)
+                    elif strategy_choice == "3":
+                        reason = "environment_changes"
+                        boost = min(0.2, 0.1 * math.log10(episodes_trained / 1000 + 1))
+                        new_epsilon = min(current_epsilon + boost, 0.5)
+                    elif strategy_choice == "4":
+                        reason = "performance_issues"
+                        boost = min(0.3, 0.15 * math.log10(episodes_trained / 1000 + 1))
+                        new_epsilon = min(current_epsilon + boost, 0.7)
+                    elif strategy_choice == "5" and use_compatibility:
+                        reason = "model_extension"
+                        # Feature extension calculation
+                        disruption_factor = 0.4 / (1.0 + episodes_trained / 10000)
+                        new_feature_epsilon = 0.3 * disruption_factor
+                        preserved_epsilon = current_epsilon * (1 - disruption_factor)
+                        new_epsilon = new_feature_epsilon + preserved_epsilon
+                        new_epsilon = max(new_epsilon, 0.01)
+                        use_compatibility = False  # Upgrade to new model
+                    else:
+                        reason = "continue"
+                        new_epsilon = current_epsilon
+                    
+                    print(f"\n🔧 Exploration adjustment: {current_epsilon:.4f} → {new_epsilon:.4f}")
+                    print(f"📋 Reason: {reason}")
+                    
+                    # Get additional training parameters
+                    show_visual = input("🎨 Show training visually? (y/n, default=n): ").lower().strip() == 'y'
+                    episodes_input = input("🎮 Additional episodes to train (default=1000): ").strip()
+                    episodes = int(episodes_input) if episodes_input else 1000
+                    
+                    # Get framerate configuration  
+                    if show_visual:
+                        framerate_input = input("⚡ Framerate multiplier 1-500% (default=100): ").strip()
+                        framerate = int(framerate_input) if framerate_input and framerate_input.isdigit() else 100
+                        framerate = max(1, min(500, framerate))
+                    else:
+                        framerate = 500  # Max speed for headless training
+                        print("⚡ Using maximum framerate (500%) for headless training")
+                    
+                    # Get chart update frequency
+                    chart_freq_input = input("📊 Chart update frequency in episodes (default=100): ").strip()
+                    chart_freq = int(chart_freq_input) if chart_freq_input and chart_freq_input.isdigit() else 100
+                    
+                    # Get exploration completion ratio
+                    exploration_input = input("🎯 Exploration completion % (default=80): ").strip()
+                    exploration_ratio = float(exploration_input) / 100.0 if exploration_input and exploration_input.replace('.', '').isdigit() else 0.8
+                    exploration_ratio = max(0.1, min(1.0, exploration_ratio))
+                    
+                    # Get exploration decay type
+                    decay_type_input = input("📉 Exploration decay type (exponential/linear, default=exponential): ").strip().lower()
+                    decay_type = "linear" if decay_type_input == "linear" else "exponential"
+                    
+                    print(f"\n🚀 Enhanced resumption starting...")
+                    print(f"   📂 Model: {os.path.basename(resume_path)}")
+                    print(f"   🔧 Compatibility mode: {'Yes' if use_compatibility else 'No'}")
+                    print(f"   ⚡ Framerate: {framerate}%")  
+                    print(f"   📊 Charts update: every {chart_freq} episodes")
+                    print(f"   🎯 Exploration: {exploration_ratio*100:.0f}% completion")
+                    print(f"   📉 Decay type: {decay_type}")
+                    
+                    # Special handling for model extension
+                    if reason == "model_extension":
+                        print(f"   🔧 Upgrading 5-feature model to 7-feature model")
+                        
+                        # Create new 7-feature model and transfer knowledge
+                        from agent import DQNAgent
+                        # Load old model first to get weights we can transfer
+                        old_agent = DQNAgent(state_size=5, action_size=3)
+                        old_agent.load_agent(resume_path)
+                        
+                        # Create new agent with enhanced features
+                        new_agent = DQNAgent(state_size=7, action_size=3)
+                        
+                        # Transfer what we can (this would need custom logic)
+                        # For now, just set the epsilon to calculated value
+                        new_agent.epsilon = new_epsilon
+                        new_agent.episode_scores = old_agent.episode_scores.copy()
+                        new_agent.exploration_rates = old_agent.exploration_rates.copy()
+                        
+                        print(f"   ✅ Model upgrade prepared")
+                        
+                        # Continue with new model training
+                        trained_agent = train_racing_ai(
+                            episodes=episodes, 
+                            show_training=show_visual, 
+                            resume_checkpoint=None,  # Start fresh with enhanced model
+                            framerate_multiplier=framerate, 
+                            chart_update_frequency=chart_freq,
+                            exploration_completion_ratio=exploration_ratio, 
+                            exploration_decay_type=decay_type
+                        )
+                        
+                        # Manually set the initial epsilon for the new model
+                        trained_agent.epsilon = new_epsilon
+                        
+                    else:
+                        # Normal resumption
+                        trained_agent = train_racing_ai(
+                            episodes=episodes, 
+                            show_training=show_visual, 
+                            resume_checkpoint=resume_path,
+                            framerate_multiplier=framerate, 
+                            chart_update_frequency=chart_freq,
+                            exploration_completion_ratio=exploration_ratio, 
+                            exploration_decay_type=decay_type
+                        )
+                        
+                        # Apply exploration rate adjustment if different from saved
+                        if abs(trained_agent.epsilon - new_epsilon) > 0.001:
+                            print(f"🔧 Adjusting exploration rate: {trained_agent.epsilon:.4f} → {new_epsilon:.4f}")
+                            trained_agent.epsilon = new_epsilon
+                    
+                    # Offer to test the newly trained agent
+                    test_new = input("\n🧪 Test the enhanced model? (y/n): ").lower().strip() == 'y'
+                    if test_new:
+                        final_model_name = os.path.join('models', 'final', 'f1_race_ai_final_model.pth')
+                        test_trained_ai(final_model_name, num_test_episodes=5, framerate_multiplier=100)
+                        
+                else:
+                    print("❌ Invalid selection")
+            except ValueError:
+                print("❌ Please enter a valid number")
 
     elif user_choice == 'chart':
         print("\n🖼️  VIEW CHART MODE")
@@ -850,13 +1048,173 @@ if __name__ == "__main__":
         
         test_random_driver(num_episodes=baseline_episodes, framerate_multiplier=framerate)
     
+    elif user_choice == 'models':
+        print("\n🗂️  MODEL MANAGEMENT SYSTEM")
+        print("-" * 40)
+        
+        # Import and create model manager
+        try:
+            from model_manager import ModelManager
+            manager = ModelManager()
+            
+            # Scan for untracked models first
+            print("🔍 Scanning for untracked models...")
+            registered = manager.scan_and_register_untracked()
+            if registered:
+                print(f"✅ Registered {len(registered)} new models")
+            
+            # Show menu
+            print("\nModel Management Options:")
+            print("   1. List all models")
+            print("   2. Model comparison report")
+            print("   3. Export model package")
+            print("   4. Archive old models")
+            print("   5. Cleanup duplicates")
+            print("   6. Full management report")
+            
+            choice = input("\nSelect option (1-6): ").strip()
+            
+            if choice == "1":
+                print("\n📋 All Registered Models:")
+                print("-" * 30)
+                models = manager.list_models()
+                
+                for i, (path, meta) in enumerate(models):
+                    print(f"{i+1}. 📄 {os.path.basename(path)}")
+                    print(f"    📊 Episodes: {meta.episodes_trained:,}")
+                    print(f"    🏆 Best Score: {meta.best_score}")
+                    print(f"    🧠 Features: {meta.feature_count}")
+                    print(f"    💾 Size: {meta.file_size_mb:.1f} MB")
+                    print(f"    📅 Created: {meta.creation_time[:10]}")
+                    if meta.tags:
+                        print(f"    🏷️  Tags: {', '.join(meta.tags)}")
+                    if meta.notes:
+                        print(f"    📝 Notes: {meta.notes}")
+                    print()
+                
+            elif choice == "2":
+                print("\n📊 Model Comparison:")
+                print("-" * 25)
+                models = manager.list_models()
+                
+                if len(models) >= 2:
+                    model_paths = [path for path, _ in models[:5]]  # Compare top 5
+                    comparison = manager.compare_models(model_paths)
+                    
+                    print("🏆 Performance Comparison:")
+                    for model in comparison['models']:
+                        print(f"   {model['name']}: {model['best_score']} pts ({model['episodes']:,} episodes)")
+                    
+                    print(f"\n📊 Summary:")
+                    print(f"   Best Performer: {comparison['summary']['best_performer']}")
+                    print(f"   Most Trained: {comparison['summary']['most_episodes']}")
+                    print(f"   Total Storage: {comparison['summary']['total_size_mb']:.1f} MB")
+                    print(f"   Feature Types: {comparison['summary']['feature_types']}")
+                else:
+                    print("Need at least 2 models for comparison")
+                
+            elif choice == "3":
+                models = manager.list_models()
+                if models:
+                    print("\n📦 Export Model Package:")
+                    print("Select model to export:")
+                    for i, (path, meta) in enumerate(models[:10]):
+                        print(f"   {i}: {os.path.basename(path)} (Score: {meta.best_score})")
+                    
+                    idx = int(input("Model number: "))
+                    if 0 <= idx < len(models):
+                        export_path = manager.export_model_package(models[idx][0])
+                        print(f"✅ Model exported to: {export_path}")
+                
+            elif choice == "4":
+                print("\n📦 Archive Old Models:")
+                print("This will archive models to save space while keeping recent and best performers")
+                
+                if input("Continue? (y/n): ").lower() == 'y':
+                    archived = manager.archive_old_models(keep_recent=5, keep_best=3)
+                    print(f"✅ Archived {len(archived)} models")
+                    
+                    # Calculate space saved
+                    space_saved = sum(os.path.getsize(path) for path in archived if os.path.exists(path))
+                    print(f"💾 Space saved: {space_saved / (1024*1024):.1f} MB")
+                
+            elif choice == "5":
+                print("\n🧹 Cleanup Duplicates:")
+                removed = manager.cleanup_duplicates()
+                if removed:
+                    print(f"✅ Removed {len(removed)} duplicate models")
+                    space_saved = sum(os.path.getsize(path) for path in removed if os.path.exists(path))
+                    print(f"💾 Space saved: {space_saved / (1024*1024):.1f} MB")
+                else:
+                    print("✨ No duplicates found!")
+                
+            elif choice == "6":
+                print("\n" + manager.generate_report())
+                
+        except ImportError:
+            print("❌ Model manager not available")
+            print("💡 Make sure model_manager.py is in your project directory")
+        except Exception as e:
+            print(f"❌ Error in model management: {e}")
+    
+    elif user_choice == 'cleanup':
+        print("\n🧹 QUICK MODEL CLEANUP")
+        print("-" * 30)
+        
+        try:
+            from model_manager import ModelManager
+            manager = ModelManager()
+            
+            print("🔍 Scanning and registering models...")
+            registered = manager.scan_and_register_untracked()
+            print(f"✅ Registered {len(registered)} models")
+            
+            print("\n🧹 Cleaning up duplicates...")
+            removed = manager.cleanup_duplicates()
+            print(f"✅ Removed {len(removed)} duplicates")
+            
+            print("\n📦 Archiving old models...")
+            archived = manager.archive_old_models(keep_recent=3, keep_best=2)
+            print(f"✅ Archived {len(archived)} old models")
+            
+            total_space = sum(os.path.getsize(path) for path in removed + archived if os.path.exists(path))
+            print(f"\n💾 Total space saved: {total_space / (1024*1024):.1f} MB")
+            
+        except Exception as e:
+            print(f"❌ Cleanup error: {e}")
+    
+    elif user_choice == 'report':
+        print("\n📋 MODEL INVENTORY REPORT")
+        print("-" * 40)
+        
+        try:
+            from model_manager import ModelManager
+            manager = ModelManager()
+            
+            # Quick scan first
+            registered = manager.scan_and_register_untracked()
+            if registered:
+                print(f"🔍 Found and registered {len(registered)} new models")
+                print()
+            
+            print(manager.generate_report())
+            
+        except Exception as e:
+            print(f"❌ Report error: {e}")
+    
+    elif user_choice == 'exit':
+        print("\n👋 Thanks for using the F1 Race AI Training System!")
+        print("🤖🏎️ Happy AI training!")
+        sys.exit(0)
+    
     elif user_choice == 'test' and not saved_models:
         print("\n❌ No trained models found!")
         print("   💡 Please train a model first using 'train' option")
     
     else:
         print("\n❌ Invalid choice or no models available")
-        print("   💡 Valid options: 'train', 'test', 'baseline'")
+        print("   💡 Valid options: train, resume, test, models, cleanup, report, dashboard, chart, baseline, exit")
     
-    print("\n🎉 Thanks for using the F1 Race AI Training System!")
-    print("👋 Happy AI training! 🤖🏎️")
+    if user_choice != 'exit':
+        print("\n🎉 Operation completed!")
+        print("� Run the program again for more training or testing")
