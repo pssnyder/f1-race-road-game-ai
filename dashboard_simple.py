@@ -51,6 +51,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.end_headers()
         self.wfile.write(dashboard_html.encode('utf-8'))
     
@@ -115,6 +118,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "chart": self.get_chart_info(),
                     "models": self.get_latest_models()[:3],
                     "last_update": status_data.get("last_update"),
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "enhanced": True
                 }
         
@@ -353,6 +357,25 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     <div class="stat-value" id="avg-score">--</div>
                     <div>Avg Score</div>
                 </div>
+                <div class="stat">
+                    <div class="stat-value" id="current-score">--</div>
+                    <div>Current Score</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="epsilon">--</div>
+                    <div>Exploration Rate</div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div style="margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8em; margin-bottom: 5px;">
+                        <span>Training Progress</span>
+                        <span id="progress-percent">--</span>
+                    </div>
+                    <div style="background: #333; border-radius: 5px; height: 8px; overflow: hidden;">
+                        <div id="progress-bar" style="background: linear-gradient(90deg, #4CAF50, #45a049); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
             </div>
             
             <div class="card">
@@ -370,23 +393,72 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     </div>
 
     <script>
-        function updateDashboard() {
+        function refreshDashboard() {
             fetch('/api/status')
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Response received:', response);
+                    return response.json();
+                })
                 .then(data => {
+                    alert('Data received: ' + JSON.stringify(data).substring(0, 100)); // Temporary debug alert
+                    console.log('Dashboard data received:', data); // Debug logging
+                    
                     // Update status
                     const statusEl = document.getElementById('status');
-                    statusEl.textContent = data.status.status;
-                    statusEl.className = data.status.active ? 'status-active' : 'status-idle';
+                    statusEl.textContent = data.status ? data.status.status : 
+                                         (data.training && data.training.is_active ? '🟢 Training Active' : '🔴 Training Idle');
+                    statusEl.className = (data.status && data.status.active) || 
+                                       (data.training && data.training.is_active) ? 'status-active' : 'status-idle';
                     
-                    document.getElementById('timestamp').textContent = data.timestamp;
+                    document.getElementById('timestamp').textContent = data.timestamp || 
+                                                                     (data.timestamps ? data.timestamps.last_update : new Date().toISOString());
                     
-                    // Update stats
-                    if (data.model_stats) {
-                        document.getElementById('episodes').textContent = data.model_stats.total_episodes || '--';
-                        document.getElementById('best-score').textContent = data.model_stats.best_score || '--';
-                        document.getElementById('avg-score').textContent = 
-                            data.model_stats.average_score ? data.model_stats.average_score.toFixed(1) : '--';
+                    // Update stats - support both legacy and enhanced formats
+                    let episodes = '--', bestScore = '--', avgScore = '--', currentScore = '--', epsilon = '--', progressPercent = 0;
+                    
+                    if (data.progress && data.metrics) {
+                        // Current API format (progress and metrics at top level)
+                        episodes = (data.progress.current_episode || 0) + '/' + (data.progress.total_episodes || 0);
+                        bestScore = data.metrics.best_score || '--';
+                        avgScore = data.metrics.average_score ? data.metrics.average_score.toFixed(1) : '--';
+                        currentScore = data.metrics.current_score || '--';
+                        epsilon = data.metrics.epsilon ? data.metrics.epsilon.toFixed(4) : '--';
+                        progressPercent = data.progress.percentage || 0;
+                    } else if (data.enhanced && data.progress && data.metrics) {
+                        // Enhanced format (nested)
+                        episodes = (data.progress.current_episode || 0) + '/' + (data.progress.total_episodes || 0);
+                        bestScore = data.metrics.best_score || '--';
+                        avgScore = data.metrics.average_score ? data.metrics.average_score.toFixed(1) : '--';
+                        currentScore = data.metrics.current_score || '--';
+                        epsilon = data.metrics.epsilon ? data.metrics.epsilon.toFixed(4) : '--';
+                        progressPercent = data.progress.percentage || 0;
+                    } else if (data.training && data.current_metrics) {
+                        // Alternative enhanced format
+                        episodes = (data.training.progress.current || 0) + '/' + (data.training.progress.total || 0);
+                        bestScore = data.current_metrics.best_score || '--';
+                        avgScore = data.current_metrics.average_score ? data.current_metrics.average_score.toFixed(1) : '--';
+                        currentScore = data.current_metrics.score || '--';
+                        epsilon = data.current_metrics.epsilon ? data.current_metrics.epsilon.toFixed(4) : '--';
+                        progressPercent = data.training.progress.percentage || 0;
+                    } else if (data.model_stats) {
+                        // Legacy format
+                        episodes = data.model_stats.total_episodes || '--';
+                        bestScore = data.model_stats.best_score || '--';
+                        avgScore = data.model_stats.average_score ? data.model_stats.average_score.toFixed(1) : '--';
+                    }
+                    
+                    document.getElementById('episodes').textContent = episodes;
+                    document.getElementById('best-score').textContent = bestScore;
+                    document.getElementById('avg-score').textContent = avgScore;
+                    document.getElementById('current-score').textContent = currentScore;
+                    document.getElementById('epsilon').textContent = epsilon;
+                    
+                    // Update progress bar
+                    const progressBar = document.getElementById('progress-bar');
+                    const progressPercentEl = document.getElementById('progress-percent');
+                    if (progressBar && progressPercentEl) {
+                        progressBar.style.width = Math.min(100, Math.max(0, progressPercent)) + '%';
+                        progressPercentEl.textContent = progressPercent > 0 ? progressPercent.toFixed(1) + '%' : '--';
                     }
                     
                     // Update models
@@ -415,8 +487,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         }
 
         // Update every 5 seconds
-        updateDashboard();
-        setInterval(updateDashboard, 5000);
+        refreshDashboard();
+        setInterval(refreshDashboard, 5000);
     </script>
 </body>
 </html>

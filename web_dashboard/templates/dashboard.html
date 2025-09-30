@@ -356,33 +356,22 @@
             return num;
         }
 
-        function updateStats(modelStats) {
-            if (!modelStats) {
-                // Set all stats to loading state
+        function updateStats(data) {
+            // Use the enhanced API format directly
+            if (data.progress && data.metrics) {
+                document.getElementById('total-episodes').textContent = data.progress.current_episode + '/' + data.progress.total_episodes;
+                document.getElementById('best-score').textContent = formatNumber(data.metrics.best_score);
+                document.getElementById('avg-score').textContent = formatNumber(data.metrics.average_score);
+                document.getElementById('recent-avg').textContent = formatNumber(data.metrics.average_score); // Use same for now
+                document.getElementById('exploration-rate').textContent = (data.metrics.epsilon * 100).toFixed(1) + '%';
+                document.getElementById('training-loss').textContent = '--'; // Not available in current format
+            } else {
+                // Fallback to loading state
                 document.getElementById('total-episodes').textContent = '--';
                 document.getElementById('best-score').textContent = '--';
                 document.getElementById('avg-score').textContent = '--';
                 document.getElementById('recent-avg').textContent = '--';
                 document.getElementById('exploration-rate').textContent = '--';
-                document.getElementById('training-loss').textContent = '--';
-                return;
-            }
-
-            document.getElementById('total-episodes').textContent = formatNumber(modelStats.total_episodes);
-            document.getElementById('best-score').textContent = formatNumber(modelStats.best_score);
-            document.getElementById('avg-score').textContent = formatNumber(modelStats.average_score);
-            document.getElementById('recent-avg').textContent = formatNumber(modelStats.recent_average);
-            
-            if (typeof modelStats.current_epsilon === 'number') {
-                document.getElementById('exploration-rate').textContent = (modelStats.current_epsilon * 100).toFixed(1) + '%';
-            } else {
-                document.getElementById('exploration-rate').textContent = '--';
-            }
-
-            if (modelStats.training_losses && modelStats.training_losses.length > 0) {
-                const recentLoss = modelStats.training_losses.slice(-1)[0];
-                document.getElementById('training-loss').textContent = formatNumber(recentLoss);
-            } else {
                 document.getElementById('training-loss').textContent = '--';
             }
         }
@@ -454,7 +443,7 @@
                     document.getElementById('last-update').textContent = data.timestamp;
 
                     // Update statistics
-                    updateStats(data.model_stats);
+                    updateStats(data);
 
                     // Update models
                     updateModels(data.models);
