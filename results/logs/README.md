@@ -1,0 +1,1 @@
+Logs produced during training (kept out of version control by .gitignore).

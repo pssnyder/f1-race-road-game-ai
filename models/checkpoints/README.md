@@ -1,0 +1,1 @@
+Training checkpoints are stored here. Large binaries are ignored by .gitignore.
