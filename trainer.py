@@ -2,9 +2,30 @@
 🏋️ F1 Race AI Training System 🤖
 =================================
 
-Welcome to the AI Training Center! 🎓✨
-
-This is where the magic happens - where we transform a clueless AI into a racing expert!
+Welcome to the AI Training Center! 🎓✨    # Calculate the decay rate needed to reach epsilon_end at the target episode
+    # Using: epsilon_end = epsilon_start * (decay_rate ^ target_episodes)
+    # Solving: decay_rate = (epsilon_end / epsilon_start) ^ (1 / target_episodes)
+    import math
+    
+    print(f"🎯 ADAPTIVE EXPLORATION SYSTEM")
+    print(f"   📊 Total episodes: {episodes}")
+    print(f"   📉 Exploration ends at episode: {exploration_end_episode} ({exploration_completion_ratio*100:.0f}% through training)")
+    print(f"   📈 Exploration range: {EXPLORATION_START:.2f} → {EXPLORATION_END:.3f}")
+    print(f"   🔄 Decay type: {exploration_decay_type}")
+    
+    if exploration_end_episode > 0:
+        if exploration_decay_type.lower() == "linear":
+            # Linear decay: epsilon decreases by fixed amount each episode
+            EXPLORATION_DECAY = "linear"  # Special flag for linear decay
+            linear_decay_per_episode = (EXPLORATION_START - EXPLORATION_END) / exploration_end_episode
+            print(f"   📉 Linear decay per episode: -{linear_decay_per_episode:.6f}")
+        else:
+            # Exponential decay: epsilon multiplied by decay factor each episode
+            EXPLORATION_DECAY = math.pow(EXPLORATION_END / EXPLORATION_START, 1.0 / exploration_end_episode)
+            print(f"   📉 Exponential decay rate: {EXPLORATION_DECAY:.6f}")
+    else:
+        EXPLORATION_DECAY = 0.9995  # Fallback to previous default
+        print(f"   ⚠️  Using fallback decay rate: {EXPLORATION_DECAY:.6f}")ere the magic happens - where we transform a clueless AI into a racing expert!
 Think of this as the "gym" where our artificial race car driver learns to become a champion.
 
 🎯 WHAT HAPPENS DURING TRAINING?
@@ -73,7 +94,8 @@ signal.signal(signal.SIGINT, signal_handler)
 
 def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=500, 
                    show_training=False, resume_checkpoint: str | None = None,
-                   framerate_multiplier: int = 100, chart_update_frequency: int = 100):
+                   framerate_multiplier: int = 100, chart_update_frequency: int = 100,
+                   exploration_completion_ratio: float = 0.8, exploration_decay_type: str = "exponential"):
     """
     🏋️ Train the AI to become an expert F1 race car driver!
     
@@ -88,6 +110,8 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         resume_checkpoint (str | None): Path to checkpoint to resume from
         framerate_multiplier (int): Speed multiplier 1-500 (100 = normal speed, 200 = 2x speed)
         chart_update_frequency (int): How often to update training charts (100 = every 100 episodes)
+        exploration_completion_ratio (float): At what fraction of training should exploration reach minimum (0.8 = 80%)
+        exploration_decay_type (str): Type of decay curve - "exponential" or "linear" (exponential = smooth curve, linear = straight line)
         
     Returns:
         DQNAgent: The trained AI agent
@@ -102,9 +126,29 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
     DISCOUNT_FACTOR = 0.95       # 🔮 How much AI cares about future (0.95 = forward-thinking)
     EXPLORATION_START = 1.0       # 🎲 Initial randomness (100% random at start)
     EXPLORATION_END = 0.01       # 🎲 Final randomness (1% random when expert)  
-    EXPLORATION_DECAY = 0.9995   # 📉 How fast to reduce randomness (slower decay for longer training)
     MEMORY_SIZE = 15000         # 🧠 How many experiences to remember
     BATCH_SIZE = 64             # 📦 How many experiences to learn from at once
+    
+    # 📏 DYNAMIC EXPLORATION DECAY CALCULATION
+    # ========================================
+    # Calculate when exploration should reach minimum (based on total episodes)
+    exploration_end_episode = int(episodes * exploration_completion_ratio)
+    
+    # Calculate the decay rate needed to reach epsilon_end at the target episode
+    # Using: epsilon_end = epsilon_start * (decay_rate ^ target_episodes)
+    # Solving: decay_rate = (epsilon_end / epsilon_start) ^ (1 / target_episodes)
+    import math
+    if exploration_end_episode > 0:
+        EXPLORATION_DECAY = math.pow(EXPLORATION_END / EXPLORATION_START, 1.0 / exploration_end_episode)
+    else:
+        EXPLORATION_DECAY = 0.9995  # Fallback to previous default
+    
+    print(f"🎯 ADAPTIVE EXPLORATION SYSTEM")
+    print(f"   � Total episodes: {episodes}")
+    print(f"   📉 Exploration ends at episode: {exploration_end_episode} ({exploration_completion_ratio*100:.0f}% through training)")
+    print(f"   🎲 Calculated decay rate: {EXPLORATION_DECAY:.6f}")
+    print(f"   📈 Exploration range: {EXPLORATION_START:.2f} → {EXPLORATION_END:.3f}")
+    print()
     
     # 🏗️ CREATE TRAINING ENVIRONMENT AND AI AGENT
     # ============================================
@@ -125,6 +169,13 @@ def train_racing_ai(episodes=2000, target_update_frequency=100, save_frequency=5
         memory_size=MEMORY_SIZE,
         batch_size=BATCH_SIZE
     )
+    
+    # Set total episodes for adaptive exploration tracking
+    agent.total_episodes = episodes
+    agent.exploration_end_episode = exploration_end_episode
+    agent.exploration_decay_type = exploration_decay_type
+    if exploration_decay_type.lower() == "linear" and exploration_end_episode > 0:
+        agent.linear_decay_per_episode = (EXPLORATION_START - EXPLORATION_END) / exploration_end_episode
     if resume_checkpoint and os.path.isfile(resume_checkpoint):
         print(f"📂 Resuming from checkpoint: {resume_checkpoint}")
         agent.load_agent(resume_checkpoint)
@@ -582,6 +633,7 @@ if __name__ == "__main__":
     print()
     print("   💡 NEW: Framerate multiplier (1-500%) controls training/testing speed!")
     print("   💡 NEW: Charts update periodically during training for real-time progress!")
+    print("   💡 NEW: Adaptive exploration decay automatically scales to any training length!")
     print("   💡 NEW: Web dashboard for monitoring training without terminal clutter!")
     print()
     
@@ -613,12 +665,24 @@ if __name__ == "__main__":
         chart_freq_input = input("📊 Chart update frequency in episodes (default=100): ").strip()
         chart_freq = int(chart_freq_input) if chart_freq_input and chart_freq_input.isdigit() else 100
         
+        # Get exploration completion ratio
+        exploration_input = input("🎯 Exploration completion % (at what % of training should exploration reach minimum, default=80): ").strip()
+        exploration_ratio = float(exploration_input) / 100.0 if exploration_input and exploration_input.replace('.', '').isdigit() else 0.8
+        exploration_ratio = max(0.1, min(1.0, exploration_ratio))  # Clamp between 10% and 100%
+        
+        # Get exploration decay type
+        decay_type_input = input("📉 Exploration decay type (exponential/linear, default=exponential): ").strip().lower()
+        decay_type = "linear" if decay_type_input == "linear" else "exponential"
+        
         # Start training
         print(f"\n🚀 Starting training for {episodes} episodes...")
         print(f"   ⚡ Framerate: {framerate}%")
         print(f"   📊 Charts will update every {chart_freq} episodes")
+        print(f"   🎯 Exploration will reach minimum at {exploration_ratio*100:.0f}% of training")
+        print(f"   📉 Using {decay_type} decay curve")
         trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual, 
-                                       framerate_multiplier=framerate, chart_update_frequency=chart_freq)
+                                       framerate_multiplier=framerate, chart_update_frequency=chart_freq,
+                                       exploration_completion_ratio=exploration_ratio, exploration_decay_type=decay_type)
         
         # Offer to test the newly trained agent
         test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'
@@ -695,11 +759,23 @@ if __name__ == "__main__":
             chart_freq_input = input("📊 Chart update frequency in episodes (default=100): ").strip()
             chart_freq = int(chart_freq_input) if chart_freq_input and chart_freq_input.isdigit() else 100
             
+            # Get exploration completion ratio
+            exploration_input = input("🎯 Exploration completion % (at what % of training should exploration reach minimum, default=80): ").strip()
+            exploration_ratio = float(exploration_input) / 100.0 if exploration_input and exploration_input.replace('.', '').isdigit() else 0.8
+            exploration_ratio = max(0.1, min(1.0, exploration_ratio))  # Clamp between 10% and 100%
+            
+            # Get exploration decay type
+            decay_type_input = input("📉 Exploration decay type (exponential/linear, default=exponential): ").strip().lower()
+            decay_type = "linear" if decay_type_input == "linear" else "exponential"
+            
             print(f"\n🚀 Resuming training for {episodes} episodes from {resume_path}...")
             print(f"   ⚡ Framerate: {framerate}%")  
             print(f"   📊 Charts will update every {chart_freq} episodes")
+            print(f"   🎯 Exploration will reach minimum at {exploration_ratio*100:.0f}% of training")
+            print(f"   📉 Using {decay_type} decay curve")
             trained_agent = train_racing_ai(episodes=episodes, show_training=show_visual, resume_checkpoint=resume_path,
-                           framerate_multiplier=framerate, chart_update_frequency=chart_freq)
+                           framerate_multiplier=framerate, chart_update_frequency=chart_freq,
+                           exploration_completion_ratio=exploration_ratio, exploration_decay_type=decay_type)
             
             # Offer to test the newly trained agent
             test_new = input("\n🧪 Test the newly trained AI? (y/n): ").lower().strip() == 'y'

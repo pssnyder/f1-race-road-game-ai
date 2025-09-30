@@ -251,6 +251,13 @@ class DQNAgent:
         self.training_losses = []         # Loss values during training
         self.episode_scores = []         # Score achieved in each episode
         self.exploration_rates = []      # Epsilon values over time
+        
+        # 🎯 ADAPTIVE EXPLORATION TRACKING
+        # =================================
+        self.total_episodes = 0          # Total episodes planned for training
+        self.exploration_end_episode = 0 # Episode when exploration should reach minimum
+        self.exploration_decay_type = "exponential"  # Type of decay: "exponential" or "linear"
+        self.linear_decay_per_episode = 0.0  # Amount to decrease epsilon per episode (for linear decay)
     
     def copy_to_target_network(self):
         """
@@ -359,13 +366,39 @@ class DQNAgent:
     
     def decay_epsilon(self):
         """
-        📉 Reduce Exploration Over Time (called once per episode)
+        📉 Adaptive Exploration Decay (called once per episode)
         
         This gradually reduces the randomness in action selection as 
-        the AI gets smarter. Called by trainer at the end of each episode.
+        the AI gets smarter. Uses adaptive decay that scales to total
+        training episodes for consistent exploration curves.
+        
+        Supports both exponential and linear decay patterns.
         """
-        if self.epsilon > self.EPSILON_END:
-            self.epsilon *= self.EPSILON_DECAY
+        current_episode = len(self.episode_scores)
+        
+        # 🎯 ADAPTIVE EXPLORATION: Scale decay to training length
+        if self.total_episodes > 0 and self.exploration_end_episode > 0:
+            if current_episode <= self.exploration_end_episode:
+                if self.exploration_decay_type.lower() == "linear":
+                    # 📉 LINEAR DECAY: Reduce by fixed amount each episode
+                    self.epsilon -= self.linear_decay_per_episode
+                    # Ensure we don't go below minimum
+                    if self.epsilon < self.EPSILON_END:
+                        self.epsilon = self.EPSILON_END
+                else:
+                    # 📉 EXPONENTIAL DECAY: Multiply by decay factor each episode
+                    if self.epsilon > self.EPSILON_END:
+                        self.epsilon *= self.EPSILON_DECAY
+                        # Ensure we don't go below minimum
+                        if self.epsilon < self.EPSILON_END:
+                            self.epsilon = self.EPSILON_END
+            # After exploration_end_episode, keep epsilon at minimum
+            else:
+                self.epsilon = self.EPSILON_END
+        else:
+            # 🔄 FALLBACK: Original decay method if adaptive parameters not set
+            if self.epsilon > self.EPSILON_END:
+                self.epsilon *= self.EPSILON_DECAY
     
     def save_agent(self, filepath):
         """
